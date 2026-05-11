@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>HACCP-Lite — Control de Inocuidad</title>
+<meta name="description" content="Sistema de control HACCP digital para empresas de alimentos">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e1a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🛡️</div>
+    <h1 class="login-title">HACCP-Lite</h1>
+    <p class="login-subtitle">Control de Inocuidad Alimentaria</p>
+    <form id="loginForm">
+      <input type="email" id="loginEmail" class="input" placeholder="Email" required>
+      <input type="password" id="loginPass" class="input" placeholder="Contraseña" required>
+      <button type="submit" class="btn btn-primary btn-block" id="btnLogin">Iniciar Sesión</button>
+    </form>
+    <p class="login-toggle">¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a></p>
+    <form id="registerForm" style="display:none">
+      <input type="email" id="regEmail" class="input" placeholder="Email" required>
+      <input type="password" id="regPass" class="input" placeholder="Contraseña (mín. 6 caracteres)" required minlength="6">
+      <input type="text" id="regName" class="input" placeholder="Nombre completo" required>
+      <button type="submit" class="btn btn-primary btn-block">Crear Cuenta</button>
+    </form>
+    <p class="login-toggle" id="showLoginLink" style="display:none"><a href="#" id="showLogin">← Volver al login</a></p>
+    <button class="btn btn-outline btn-block" id="btnDemo" style="margin-top:12px">🚀 Modo Demo (sin cuenta)</button>
+  </div>
+  <div id="toast" class="toast"></div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="appMain" class="app-main" style="display:none">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <span class="header-logo">🛡️</span>
+      <div><h1 class="header-title">HACCP-Lite</h1><p class="header-sub" id="headerUser">Demo</p></div>
+    </div>
+    <button class="btn-icon-only" id="btnLogout" title="Cerrar sesión">⏻</button>
+  </header>
+
+  <!-- Tab Contents -->
+  <main class="main-content">
+    <!-- DASHBOARD -->
+    <section id="tabDashboard" class="tab-panel active">
+      <h2 class="section-title">📊 Dashboard</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card"><span class="kpi-value" id="kpiHoy">0</span><span class="kpi-label">Registros Hoy</span></div>
+        <div class="kpi-card kpi-danger"><span class="kpi-value" id="kpiAlertas">0</span><span class="kpi-label">No Conformes</span></div>
+        <div class="kpi-card kpi-success"><span class="kpi-value" id="kpiConf">100%</span><span class="kpi-label">Conformidad</span></div>
+        <div class="kpi-card"><span class="kpi-value" id="kpiTotal">0</span><span class="kpi-label">Total Mes</span></div>
+      </div>
+      <h3 class="sub-title">Actividad Reciente</h3>
+      <div id="recentList" class="record-list"><p class="empty-state">Sin registros aún. ¡Comienza registrando un control!</p></div>
+    </section>
+
+    <!-- PCC -->
+    <section id="tabPCC" class="tab-panel">
+      <h2 class="section-title">🌡️ PCC — Puntos Críticos</h2>
+      <form id="formPCC" class="form-card">
+        <label class="label">Equipo / Punto de Control</label>
+        <select id="pccEquipo" class="input"><option value="">Seleccionar...</option><option>Nevera Principal</option><option>Congelador 1</option><option>Congelador 2</option><option>Zona de Despacho</option><option>Recepción MP</option></select>
+        <label class="label">Temperatura °C</label>
+        <input type="number" id="pccTemp" class="input input-big" placeholder="Ej: 4.5" step="0.1" required>
+        <div class="range-hint" id="pccRange">Rango aceptable: 0°C – 5°C</div>
+        <label class="label">Estado</label>
+        <div class="status-btns">
+          <button type="button" class="status-btn active" data-val="conforme">✅ Conforme</button>
+          <button type="button" class="status-btn" data-val="no_conforme">❌ No Conforme</button>
+          <button type="button" class="status-btn" data-val="accion_correctiva">⚠️ Acc. Correctiva</button>
+        </div>
+        <label class="label">Observaciones</label>
+        <textarea id="pccObs" class="input textarea" placeholder="Opcional..." rows="2"></textarea>
+        <input type="text" id="pccAccion" class="input" placeholder="Acción correctiva (si aplica)" style="display:none">
+        <button type="submit" class="btn btn-primary btn-block">💾 Guardar Registro PCC</button>
+      </form>
+      <h3 class="sub-title">Últimos Registros PCC</h3>
+      <div id="pccList" class="record-list"></div>
+    </section>
+
+    <!-- LIMPIEZA -->
+    <section id="tabLimpieza" class="tab-panel">
+      <h2 class="section-title">🧹 Limpieza y Desinfección</h2>
+      <form id="formLimpieza" class="form-card">
+        <label class="label">Área</label>
+        <select id="limpArea" class="input"><option value="">Seleccionar...</option><option>Zona de Corte</option><option>Zona de Empaque</option><option>Cuarto Frío</option><option>Área de Despacho</option><option>Baños y Vestidores</option><option>Equipos y Utensilios</option></select>
+        <label class="label">Producto Utilizado</label>
+        <input type="text" id="limpProducto" class="input" placeholder="Ej: Hipoclorito de sodio" required>
+        <label class="label">Concentración</label>
+        <input type="text" id="limpConc" class="input" placeholder="Ej: 200 ppm">
+        <label class="label">Estado</label>
+        <div class="status-btns" id="limpStatus">
+          <button type="button" class="status-btn active" data-val="conforme">✅ Conforme</button>
+          <button type="button" class="status-btn" data-val="no_conforme">❌ No Conforme</button>
+        </div>
+        <label class="label">Observaciones</label>
+        <textarea id="limpObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
+        <button type="submit" class="btn btn-primary btn-block">💾 Guardar Limpieza</button>
+      </form>
+      <h3 class="sub-title">Últimos Registros Limpieza</h3>
+      <div id="limpList" class="record-list"></div>
+    </section>
+
+    <!-- TRAZABILIDAD -->
+    <section id="tabTraza" class="tab-panel">
+      <h2 class="section-title">📦 Trazabilidad</h2>
+      <form id="formTraza" class="form-card">
+        <label class="label">Código de Lote</label>
+        <input type="text" id="trazaLote" class="input" placeholder="Ej: LOTE-2026-0509" required>
+        <label class="label">Producto</label>
+        <input type="text" id="trazaProd" class="input" placeholder="Ej: Hígado de res" required>
+        <label class="label">Proveedor</label>
+        <input type="text" id="trazaProv" class="input" placeholder="Ej: Frigorífico XYZ">
+        <div class="input-row">
+          <div class="input-col"><label class="label">Temp. Recepción °C</label><input type="number" id="trazaTemp" class="input" step="0.1" placeholder="4.0"></div>
+          <div class="input-col"><label class="label">Cantidad</label><input type="text" id="trazaCant" class="input" placeholder="50 kg"></div>
+        </div>
+        <div class="input-row">
+          <div class="input-col"><label class="label">Fecha Ingreso</label><input type="date" id="trazaIngreso" class="input"></div>
+          <div class="input-col"><label class="label">Fecha Vencimiento</label><input type="date" id="trazaVence" class="input"></div>
+        </div>
+        <label class="label">Estado</label>
+        <div class="status-btns" id="trazaStatus">
+          <button type="button" class="status-btn active" data-val="conforme">✅ Conforme</button>
+          <button type="button" class="status-btn" data-val="no_conforme">❌ No Conforme</button>
+        </div>
+        <label class="label">Observaciones</label>
+        <textarea id="trazaObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
+        <button type="submit" class="btn btn-primary btn-block">💾 Guardar Trazabilidad</button>
+      </form>
+      <h3 class="sub-title">Últimos Registros Trazabilidad</h3>
+      <div id="trazaList" class="record-list"></div>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="tabReportes" class="tab-panel">
+      <h2 class="section-title">📄 Reportes</h2>
+      <div class="form-card">
+        <label class="label">Tipo de Control</label>
+        <select id="repTipo" class="input"><option value="">Todos</option><option value="pcc">PCC</option><option value="limpieza">Limpieza</option><option value="trazabilidad">Trazabilidad</option></select>
+        <label class="label">Desde</label>
+        <input type="date" id="repDesde" class="input">
+        <label class="label">Hasta</label>
+        <input type="date" id="repHasta" class="input">
+        <button class="btn btn-primary btn-block" id="btnGenPDF">📄 Generar Reporte PDF</button>
+        <button class="btn btn-outline btn-block" id="btnPreview" style="margin-top:8px">👁️ Vista Previa</button>
+      </div>
+      <div id="reportPreview" class="report-preview" style="display:none">
+        <h3 class="sub-title">Vista Previa</h3>
+        <div id="reportTable"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="tabDashboard"><span class="nav-icon">📊</span><span class="nav-label">Inicio</span></button>
+    <button class="nav-btn" data-tab="tabPCC"><span class="nav-icon">🌡️</span><span class="nav-label">PCC</span></button>
+    <button class="nav-btn" data-tab="tabLimpieza"><span class="nav-icon">🧹</span><span class="nav-label">Limpieza</span></button>
+    <button class="nav-btn" data-tab="tabTraza"><span class="nav-icon">📦</span><span class="nav-label">Trazab.</span></button>
+    <button class="nav-btn" data-tab="tabReportes"><span class="nav-icon">📄</span><span class="nav-label">Reportes</span></button>
+  </nav>
+  <div id="appToast" class="toast"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
