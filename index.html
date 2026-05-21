@@ -19,20 +19,32 @@
     <div class="login-logo"><img src="logo.png" alt="GD FORGE"></div>
     <h1 class="login-title">HACCP-Lite</h1>
     <p class="login-subtitle">Control de Inocuidad Alimentaria · GD FORGE</p>
+
+    <!-- Login Form -->
     <form id="loginForm">
       <input type="email" id="loginEmail" class="input" placeholder="Email" required>
       <input type="password" id="loginPass" class="input" placeholder="Contraseña" required>
       <button type="submit" class="btn btn-primary btn-block" id="btnLogin">Iniciar Sesión</button>
     </form>
-    <p class="login-toggle">¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a></p>
+    <p class="login-toggle" id="loginToggle">¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a> · <a href="#" id="showForgot">¿Olvidaste tu contraseña?</a></p>
+
+    <!-- Register Form -->
     <form id="registerForm" style="display:none">
       <input type="email" id="regEmail" class="input" placeholder="Email" required>
       <input type="password" id="regPass" class="input" placeholder="Contraseña (mín. 6)" required minlength="6">
       <input type="text" id="regName" class="input" placeholder="Nombre completo" required>
-      <button type="submit" class="btn btn-primary btn-block">Crear Cuenta</button>
+      <button type="submit" class="btn btn-primary btn-block" id="btnRegister">Crear Cuenta</button>
     </form>
+
+    <!-- Forgot Password Form -->
+    <form id="forgotForm" style="display:none">
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Escribe tu email y te enviaremos un link para cambiar tu contraseña.</p>
+      <input type="email" id="forgotEmail" class="input" placeholder="Tu email" required>
+      <button type="submit" class="btn btn-primary btn-block" id="btnForgot">Enviar Link</button>
+    </form>
+
     <p class="login-toggle" id="showLoginLink" style="display:none"><a href="#" id="showLogin">← Volver al login</a></p>
-    <button class="btn btn-outline btn-block" id="btnDemo" style="margin-top:10px">🚀 Modo Demo</button>
+    <button class="btn btn-outline btn-block" id="btnDemo" style="margin-top:10px">🚀 Modo Demo (sin cuenta)</button>
     <p style="text-align:center;font-size:9px;color:var(--text3);margin-top:16px">Desarrollado por Giovanni Duarte MVZ<br>Consultor en Calidad e Inocuidad</p>
   </div>
   <div id="toast" class="toast"></div>
@@ -43,13 +55,16 @@
   <header class="header">
     <div class="header-left">
       <img src="logo.png" class="header-logo" alt="GD FORGE">
-      <div class="header-info"><h1 class="header-title">HACCP-Lite</h1><p class="header-sub" id="headerUser">GD FORGE</p></div>
+      <div class="header-info">
+        <h1 class="header-title">HACCP-Lite <span id="headerMode" style="display:none;font-size:10px;background:var(--warning);color:#000;padding:1px 6px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:4px">DEMO</span></h1>
+        <p class="header-sub" id="headerUser">GD FORGE</p>
+      </div>
     </div>
     <button class="btn-icon-only" id="btnLogout" title="Cerrar sesión">⏻</button>
   </header>
 
   <main class="main-content">
-    <!-- Responsible prompt -->
+    <!-- Responsable prompt -->
     <div id="responsableBar" class="form-card" style="display:none;margin-bottom:12px">
       <label class="label">👤 Responsable del Turno</label>
       <div class="input-row">
@@ -60,7 +75,7 @@
 
     <!-- DASHBOARD -->
     <section id="tabDashboard" class="tab-panel active">
-      <h2 class="section-title">📊 Dashboard</h2>
+      <h2 class="section-title">📊 Dashboard <span id="connBadge" style="font-size:12px;font-weight:400"></span></h2>
       <div class="kpi-grid">
         <div class="kpi-card"><span class="kpi-value" id="kpiHoy">0</span><span class="kpi-label">Registros Hoy</span></div>
         <div class="kpi-card kpi-danger"><span class="kpi-value" id="kpiAlertas">0</span><span class="kpi-label">No Conformes</span></div>
@@ -82,18 +97,15 @@
         <div class="form-section"><span class="form-section-title">📍 Punto de Control</span></div>
         <label class="label">Equipo / Punto de Control</label>
         <select id="pccEquipo" class="input"><option value="">Seleccionar...</option><option>Nevera Principal</option><option>Congelador 1</option><option>Congelador 2</option><option>Cuarto Frío</option><option>Zona de Despacho</option><option>Recepción MP</option><option>Cocción</option><option>Enfriamiento</option></select>
-
         <div class="form-section"><span class="form-section-title">🌡️ Medición</span></div>
         <label class="label">Temperatura °C</label>
         <input type="number" id="pccTemp" class="input input-big" placeholder="0.0" step="0.1" required>
         <div class="range-hint" id="pccRange">Rango aceptable: —</div>
         <div id="pccRangeIndicator" class="range-indicator" style="display:none"></div>
-
         <div class="input-row">
           <div class="input-col"><label class="label">Límite Inferior °C</label><input type="number" id="pccLimInf" class="input" step="0.1" value="0"></div>
           <div class="input-col"><label class="label">Límite Superior °C</label><input type="number" id="pccLimSup" class="input" step="0.1" value="5"></div>
         </div>
-
         <div class="form-section"><span class="form-section-title">📋 Evaluación</span></div>
         <label class="label">Estado</label>
         <div class="status-btns">
@@ -104,7 +116,6 @@
         <label class="label">Observaciones</label>
         <textarea id="pccObs" class="input textarea" placeholder="Opcional..." rows="2"></textarea>
         <input type="text" id="pccAccion" class="input" placeholder="Describir acción correctiva tomada..." style="display:none">
-
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="pccResp" class="input" placeholder="Nombre de quien registra" required>
         <button type="submit" class="btn btn-primary btn-block">💾 Guardar Registro PCC</button>
@@ -122,16 +133,13 @@
         <select id="limpArea" class="input"><option value="">Seleccionar...</option><option>Zona de Corte</option><option>Zona de Empaque</option><option>Cuarto Frío</option><option>Área de Despacho</option><option>Baños y Vestidores</option><option>Equipos y Utensilios</option><option>Pisos y Paredes</option><option>Zona de Recepción</option></select>
         <label class="label">Tipo de Limpieza</label>
         <select id="limpTipo" class="input"><option value="">Seleccionar...</option><option>Pre-operativa</option><option>Operativa</option><option>Post-operativa</option></select>
-
         <div class="form-section"><span class="form-section-title">🧪 Productos Químicos</span></div>
         <label class="label">Producto de Limpieza</label>
         <input type="text" id="limpProducto" class="input" placeholder="Ej: Jabón desengrasante" required list="listaLimpieza">
         <datalist id="listaLimpieza"><option value="Jabón desengrasante"><option value="Detergente alcalino"><option value="Detergente neutro"><option value="Desengrasante industrial"></datalist>
-
         <label class="label">Producto de Desinfección</label>
         <input type="text" id="limpDesinf" class="input" placeholder="Ej: Hipoclorito de sodio" list="listaDesinf">
         <datalist id="listaDesinf"><option value="Hipoclorito de sodio"><option value="Amonio cuaternario"><option value="Ácido peracético"><option value="Dióxido de cloro"></datalist>
-
         <div class="input-row-3">
           <div class="input-col"><label class="label">Concentración</label><input type="text" id="limpConc" class="input" placeholder="200 ppm"></div>
           <div class="input-col"><label class="label">Tiempo Contacto</label><input type="text" id="limpTiempo" class="input" placeholder="10 min"></div>
@@ -144,7 +152,6 @@
           <button type="button" class="status-btn active" data-val="si" id="enjSi">✅ Sí</button>
           <button type="button" class="status-btn" data-val="no" id="enjNo">❌ No</button>
         </div>
-
         <div class="form-section"><span class="form-section-title">📋 Evaluación</span></div>
         <label class="label">Estado</label>
         <div class="status-btns" id="limpStatus">
@@ -153,7 +160,6 @@
         </div>
         <label class="label">Observaciones</label>
         <textarea id="limpObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
-
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="limpResp" class="input" placeholder="Nombre de quien registra" required>
         <button type="submit" class="btn btn-primary btn-block">💾 Guardar Limpieza</button>
@@ -181,13 +187,11 @@
           <div class="input-col"><label class="label">Fecha Ingreso</label><input type="date" id="trazaIngreso" class="input"></div>
           <div class="input-col"><label class="label">Fecha Vencimiento</label><input type="date" id="trazaVence" class="input"></div>
         </div>
-
         <div class="form-section"><span class="form-section-title">🌡️ Temperatura de Recepción</span></div>
         <div class="input-row">
           <div class="input-col"><label class="label">Temp. Producto °C</label><input type="number" id="trazaTemp" class="input" step="0.1" placeholder="4.0"></div>
           <div class="input-col"><label class="label">Temp. Vehículo °C</label><input type="number" id="trazaTempVeh" class="input" step="0.1" placeholder="2.0"></div>
         </div>
-
         <div class="form-section"><span class="form-section-title">🚛 Guía de Transporte</span></div>
         <div class="input-row">
           <div class="input-col"><label class="label">N° Guía / Remisión</label><input type="text" id="trazaGuia" class="input" placeholder="GR-00123"></div>
@@ -198,7 +202,6 @@
           <select id="trazaVehLimp" class="input"><option value="">Limpieza...</option><option>Limpio</option><option>Aceptable</option><option>Sucio</option></select>
           <select id="trazaVehRefri" class="input"><option value="">Refrigeración...</option><option>Refrigerado</option><option>No Refrigerado</option><option>Congelado</option></select>
         </div>
-
         <div class="form-section"><span class="form-section-title">📋 Evaluación</span></div>
         <label class="label">Estado</label>
         <div class="status-btns" id="trazaStatus">
@@ -207,7 +210,6 @@
         </div>
         <label class="label">Observaciones</label>
         <textarea id="trazaObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
-
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="trazaResp" class="input" placeholder="Responsable de recepción" required>
         <button type="submit" class="btn btn-primary btn-block">💾 Guardar Trazabilidad</button>
@@ -238,6 +240,12 @@
         <p class="footer-credits">Desarrollado por <strong>Giovanni Duarte MVZ</strong><br>Consultor en Calidad e Inocuidad Alimentaria</p>
       </div>
     </section>
+
+    <!-- ADMIN -->
+    <section id="tabAdmin" class="tab-panel">
+      <h2 class="section-title">⚙️ Administración</h2>
+      <div id="adminContent"><p class="empty-state">Cargando...</p></div>
+    </section>
   </main>
 
   <nav class="bottom-nav">
@@ -246,6 +254,7 @@
     <button class="nav-btn" data-tab="tabLimpieza"><span class="nav-icon">🧹</span><span class="nav-label">Limpieza</span></button>
     <button class="nav-btn" data-tab="tabTraza"><span class="nav-icon">📦</span><span class="nav-label">Trazab.</span></button>
     <button class="nav-btn" data-tab="tabReportes"><span class="nav-icon">📄</span><span class="nav-label">Reportes</span></button>
+    <button class="nav-btn" data-tab="tabAdmin" id="navAdmin" style="display:none"><span class="nav-icon">⚙️</span><span class="nav-label">Admin</span></button>
   </nav>
   <div id="appToast" class="toast"></div>
 </div>

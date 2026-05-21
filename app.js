@@ -1,10 +1,10 @@
-/* ===== HACCP-Lite v2.0 — GD FORGE ===== */
+/* ===== HACCP-Lite v2.1 — GD FORGE — Production Ready ===== */
 
 const SUPABASE_URL = 'https://trhogittkrnzoxseooze.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaG9naXR0a3Juem94c2Vvb3plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNDQ2MjQsImV4cCI6MjA5MzkyMDYyNH0.FYbOBT4iha9DeeMc2nYUQp40IRLgJ7KNC7YILhaWKoE';
-const DEMO_MODE = SUPABASE_URL.includes('TU_');
+const HAS_SUPABASE = !SUPABASE_URL.includes('TU_');
 
-const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashboard', currentStatus:{}, responsable:'' };
+const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashboard', currentStatus:{}, responsable:'', isDemo:false, role:'empleado' };
 const RANGES = {
   'Nevera Principal':[0,5],'Congelador 1':[-18,-12],'Congelador 2':[-18,-12],
   'Cuarto Frío':[0,5],'Zona de Despacho':[0,7],'Recepción MP':[0,5],
@@ -12,54 +12,136 @@ const RANGES = {
 };
 
 let sb = null;
-if (!DEMO_MODE) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+if (HAS_SUPABASE) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 
-// Toast
+// ═══ TOAST ═══
 function toast(msg, type='success', parent='appToast'){
   const el=$(parent)||$('toast'); el.textContent=msg; el.className='toast show '+type;
   setTimeout(()=>el.className='toast',3000);
 }
 
-// Storage
+// ═══ LOCAL STORAGE ═══
 function getRecords(){ try{return JSON.parse(localStorage.getItem('haccp_records')||'[]')}catch{return[]} }
 function saveRecords(r){ localStorage.setItem('haccp_records',JSON.stringify(r)) }
 function addRecord(r){ const rec={...r,id:crypto.randomUUID(),created_at:new Date().toISOString()}; const recs=getRecords(); recs.unshift(rec); saveRecords(recs); STATE.records=recs; return rec; }
 
-// ═══ AUTH ═══
+// ══════════════════════════════
+// AUTH
+// ══════════════════════════════
 function enterDemo(){
-  STATE.user={email:'demo@gdforge.app'}; STATE.restaurant_id='demo'; STATE.records=getRecords();
+  STATE.isDemo=true; STATE.user={email:'demo@gdforge.app',id:'demo'}; STATE.restaurant_id='demo'; STATE.records=getRecords();
   $('loginScreen').style.display='none'; $('appMain').style.display='flex';
-  $('headerUser').textContent='Modo Demo';
+  $('headerUser').textContent='Modo Demo'; $('headerMode').textContent='DEMO';
+  $('headerMode').style.display='inline-block';
   const saved=localStorage.getItem('haccp_responsable');
   if(saved){STATE.responsable=saved; fillResponsable(saved); $('responsableBar').style.display='none';}
   else $('responsableBar').style.display='block';
   refreshDashboard();
 }
+
 async function handleLogin(e){
-  e.preventDefault(); if(DEMO_MODE){enterDemo();return}
+  e.preventDefault();
+  if(!HAS_SUPABASE){toast('Supabase no configurado — usa Modo Demo','error','toast');return}
   const email=$('loginEmail').value.trim(), pass=$('loginPass').value;
+  if(!email||!pass){toast('Completa email y contraseña','error','toast');return}
   $('btnLogin').textContent='Cargando...'; $('btnLogin').disabled=true;
-  const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
-  $('btnLogin').textContent='Iniciar Sesión'; $('btnLogin').disabled=false;
-  if(error){toast(error.message,'error','toast');return} await enterApp(data.user);
+  try{
+    const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
+    $('btnLogin').textContent='Iniciar Sesión'; $('btnLogin').disabled=false;
+    if(error){
+      if(error.message.includes('Invalid login')){toast('Email o contraseña incorrectos','error','toast')}
+      else if(error.message.includes('Email not confirmed')){toast('Revisa tu email y confirma tu cuenta','error','toast')}
+      else toast(error.message,'error','toast');
+      return;
+    }
+    await enterApp(data.user);
+  }catch(err){$('btnLogin').textContent='Iniciar Sesión';$('btnLogin').disabled=false;toast('Error de conexión','error','toast')}
 }
+
 async function handleRegister(e){
-  e.preventDefault(); if(DEMO_MODE){enterDemo();return}
-  const{data,error}=await sb.auth.signUp({email:$('regEmail').value.trim(),password:$('regPass').value,
-    options:{data:{full_name:$('regName').value.trim()}}});
-  if(error){toast(error.message,'error','toast');return}
-  toast('¡Cuenta creada! Revisa tu email.','success','toast');
+  e.preventDefault();
+  if(!HAS_SUPABASE){toast('Supabase no configurado — usa Modo Demo','error','toast');return}
+  const email=$('regEmail').value.trim(), pass=$('regPass').value, name=$('regName').value.trim();
+  if(!email||!pass||!name){toast('Completa todos los campos','error','toast');return}
+  if(pass.length<6){toast('La contraseña debe tener al menos 6 caracteres','error','toast');return}
+  $('btnRegister').textContent='Creando...'; $('btnRegister').disabled=true;
+  try{
+    const{data,error}=await sb.auth.signUp({email,password:pass,
+      options:{data:{full_name:name},emailRedirectTo:window.location.origin+window.location.pathname}});
+    $('btnRegister').textContent='Crear Cuenta'; $('btnRegister').disabled=false;
+    if(error){toast(error.message,'error','toast');return}
+    if(data.user?.identities?.length===0){toast('Ya existe una cuenta con ese email','error','toast');return}
+    toast('✅ ¡Cuenta creada! Revisa tu email para confirmarla.','success','toast');
+  }catch(err){$('btnRegister').textContent='Crear Cuenta';$('btnRegister').disabled=false;toast('Error de conexión','error','toast')}
 }
+
+async function handleForgotPassword(e){
+  e.preventDefault();
+  const email=$('forgotEmail').value.trim();
+  if(!email){toast('Escribe tu email','error','toast');return}
+  if(!HAS_SUPABASE){toast('Supabase no configurado','error','toast');return}
+  $('btnForgot').textContent='Enviando...'; $('btnForgot').disabled=true;
+  try{
+    const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});
+    $('btnForgot').textContent='Enviar Link'; $('btnForgot').disabled=false;
+    if(error){toast(error.message,'error','toast');return}
+    toast('✅ Revisa tu email — te enviamos un link para cambiar tu contraseña','success','toast');
+    showLoginForm();
+  }catch(err){$('btnForgot').textContent='Enviar Link';$('btnForgot').disabled=false;toast('Error de conexión','error','toast')}
+}
+
 async function enterApp(user){
-  STATE.user=user; $('loginScreen').style.display='none'; $('appMain').style.display='flex';
-  $('headerUser').textContent=user.email;
-  const{data}=await sb.from('users').select('restaurant_id,nombre').eq('id',user.id).single();
-  if(data){STATE.restaurant_id=data.restaurant_id; if(data.nombre){STATE.responsable=data.nombre; fillResponsable(data.nombre);$('responsableBar').style.display='none';} else $('responsableBar').style.display='block';}
+  STATE.isDemo=false; STATE.user=user;
+  $('loginScreen').style.display='none'; $('appMain').style.display='flex';
+  $('headerUser').textContent=user.email; $('headerMode').textContent='☁️';
+  $('headerMode').style.display='inline-block';
+  try{
+    const{data}=await sb.from('users').select('restaurant_id,nombre,rol').eq('id',user.id).single();
+    if(data){
+      STATE.restaurant_id=data.restaurant_id; STATE.role=data.rol||'empleado';
+      if(data.nombre){STATE.responsable=data.nombre; fillResponsable(data.nombre); $('responsableBar').style.display='none';}
+      else $('responsableBar').style.display='block';
+    } else $('responsableBar').style.display='block';
+  }catch(e){$('responsableBar').style.display='block'}
   await loadRecords(); refreshDashboard();
+  // Show admin tab for admin users
+  const adminTab=$('navAdmin');
+  if(adminTab) adminTab.style.display=(STATE.role==='admin')?'flex':'none';
 }
-async function handleLogout(){ if(!DEMO_MODE&&sb)await sb.auth.signOut(); STATE.user=null; $('appMain').style.display='none'; $('loginScreen').style.display='flex'; }
-async function checkSession(){ if(DEMO_MODE)return; const{data:{session}}=await sb.auth.getSession(); if(session)await enterApp(session.user); }
+
+async function handleLogout(){
+  if(!STATE.isDemo&&sb) await sb.auth.signOut();
+  STATE.user=null; STATE.isDemo=false; STATE.role='empleado'; STATE.records=[];
+  $('appMain').style.display='none'; $('loginScreen').style.display='flex';
+  $('headerMode').style.display='none';
+  showLoginForm();
+}
+
+async function checkSession(){
+  if(!HAS_SUPABASE)return;
+  try{
+    const{data:{session}}=await sb.auth.getSession();
+    if(session) await enterApp(session.user);
+  }catch(e){}
+}
+
+// ═══ LOGIN FORMS NAVIGATION ═══
+function showLoginForm(){
+  $('loginForm').style.display='block';$('registerForm').style.display='none';
+  $('forgotForm').style.display='none';$('loginToggle').style.display='block';
+  $('showLoginLink').style.display='none';
+}
+function showRegisterForm(){
+  $('loginForm').style.display='none';$('registerForm').style.display='block';
+  $('forgotForm').style.display='none';$('loginToggle').style.display='none';
+  $('showLoginLink').style.display='block';
+}
+function showForgotForm(){
+  $('loginForm').style.display='none';$('registerForm').style.display='none';
+  $('forgotForm').style.display='block';$('loginToggle').style.display='none';
+  $('showLoginLink').style.display='block';
+}
 
 // ═══ RESPONSABLE ═══
 function fillResponsable(name){ ['pccResp','limpResp','trazaResp'].forEach(id=>{if($(id))$(id).value=name}); }
@@ -69,8 +151,9 @@ function setResponsable(){ const n=$('globalResponsable').value.trim(); if(!n){t
 function switchTab(tabId){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  $(tabId).classList.add('active'); document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+  $(tabId).classList.add('active'); document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
   STATE.currentTab=tabId;
+  if(tabId==='tabAdmin') loadAdminData();
 }
 
 // ═══ STATUS BTNS ═══
@@ -84,28 +167,40 @@ function initStatusButtons(){
       if(af)af.style.display=b.dataset.val==='accion_correctiva'?'block':'none';
     });
   });
-  // Enjuague buttons
   $('enjSi')?.addEventListener('click',()=>{$('enjSi').classList.add('active');$('enjNo').classList.remove('active');});
   $('enjNo')?.addEventListener('click',()=>{$('enjNo').classList.add('active');$('enjSi').classList.remove('active');});
 }
 
-// ═══ DATA ═══
+// ══════════════════════════════
+// DATA OPERATIONS
+// ══════════════════════════════
 async function loadRecords(){
-  if(DEMO_MODE){STATE.records=getRecords();return}
-  const{data,error}=await sb.from('control_records').select('*').order('created_at',{ascending:false}).limit(200);
-  if(!error&&data){STATE.records=data;saveRecords(data)}
-}
-async function insertRecord(record){
-  if(DEMO_MODE)return addRecord(record);
-  const row={restaurant_id:STATE.restaurant_id,tipo:record.tipo,datos:record.datos,
-    estado:record.estado,observaciones:record.observaciones||null,
-    accion_correctiva:record.accion_correctiva||null,registrado_por:STATE.user.id};
-  const{data,error}=await sb.from('control_records').insert([row]).select();
-  if(error){toast('Error: '+error.message,'error');return null}
-  const ins=data[0]; STATE.records.unshift(ins); saveRecords(STATE.records); return ins;
+  if(STATE.isDemo){STATE.records=getRecords();return}
+  try{
+    const{data,error}=await sb.from('control_records').select('*').order('created_at',{ascending:false}).limit(200);
+    if(!error&&data){STATE.records=data;saveRecords(data)}
+    else{STATE.records=getRecords()}// Fallback to local
+  }catch(e){STATE.records=getRecords()}
 }
 
-// ═══ PCC RANGE CHECK ═══
+async function insertRecord(record){
+  // DEMO MODE → always local storage
+  if(STATE.isDemo) return addRecord(record);
+  // SUPABASE MODE → try cloud, fallback to local
+  try{
+    const row={restaurant_id:STATE.restaurant_id,tipo:record.tipo,datos:record.datos,
+      estado:record.estado,observaciones:record.observaciones||null,
+      accion_correctiva:record.accion_correctiva||null,registrado_por:STATE.user.id};
+    const{data,error}=await sb.from('control_records').insert([row]).select();
+    if(error){
+      toast('⚠️ Sin conexión — guardado local','error');
+      return addRecord(record);// Fallback to local
+    }
+    const ins=data[0]; STATE.records.unshift(ins); saveRecords(STATE.records); return ins;
+  }catch(e){toast('⚠️ Sin conexión — guardado local','error'); return addRecord(record);}
+}
+
+// ═══ PCC RANGE ═══
 function checkPCCRange(){
   const equipo=$('pccEquipo').value, temp=parseFloat($('pccTemp').value);
   const range=RANGES[equipo]; if(!range){$('pccRangeIndicator').style.display='none';return}
@@ -160,8 +255,8 @@ async function handleTraza(e){
 // ═══ RENDER ═══
 function badgeClass(e){return e==='conforme'?'badge-green':e==='no_conforme'?'badge-red':'badge-yellow'}
 function statusLabel(e){return e==='conforme'?'✅':e==='no_conforme'?'❌':'⚠️'}
-function timeAgo(iso){const d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)return'Hace unos seg.';if(d<3600)return`Hace ${Math.floor(d/60)} min`;if(d<86400)return`Hace ${Math.floor(d/3600)}h`;return new Date(iso).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}
-function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦',proceso:'⚙️'}[t]||'📋'}
+function timeAgo(iso){const d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)return'Ahora';if(d<3600)return`${Math.floor(d/60)} min`;if(d<86400)return`${Math.floor(d/3600)}h`;return new Date(iso).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}
+function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦'}[t]||'📋'}
 function recordHTML(r){
   const d=r.datos||{}; let title='',value='',resp=d.responsable||'';
   if(r.tipo==='pcc'){title=d.equipo||'PCC';value=`${d.temperatura}°C`;if(d.fuera_rango)value=`⚠️${value}`}
@@ -169,7 +264,7 @@ function recordHTML(r){
   else if(r.tipo==='trazabilidad'){title=d.lote||'Lote';value=d.producto||''}
   return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div>
     <div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div>
-    <div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤 '+resp:''}</div></div>
+    <div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}</div></div>
     <div class="record-value">${value}</div></div>`;
 }
 function refreshDashboard(){
@@ -181,10 +276,60 @@ function refreshDashboard(){
   $('kpiConf').textContent=(hoy.length?Math.round((hoy.length-nc.length)/hoy.length*100):100)+'%';
   $('kpiTotal').textContent=mes.length;
   $('recentList').innerHTML=recs.slice(0,10).map(recordHTML).join('')||'<p class="empty-state">Sin registros</p>';
+  // Connection badge
+  const badge=$('connBadge');
+  if(badge) badge.innerHTML=STATE.isDemo?'<span style="color:var(--warning)">📱 Local</span>':'<span style="color:var(--accent)">☁️ Nube</span>';
 }
 function refreshPCCList(){const l=STATE.records.filter(r=>r.tipo==='pcc').slice(0,10);$('pccList').innerHTML=l.length?l.map(recordHTML).join(''):'<p class="empty-state">Sin registros PCC</p>';}
 function refreshLimpList(){const l=STATE.records.filter(r=>r.tipo==='limpieza').slice(0,10);$('limpList').innerHTML=l.length?l.map(recordHTML).join(''):'<p class="empty-state">Sin registros</p>';}
 function refreshTrazaList(){const l=STATE.records.filter(r=>r.tipo==='trazabilidad').slice(0,10);$('trazaList').innerHTML=l.length?l.map(recordHTML).join(''):'<p class="empty-state">Sin registros</p>';}
+
+// ══════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════
+async function loadAdminData(){
+  if(STATE.isDemo){
+    $('adminContent').innerHTML=`<div class="form-card"><p style="color:var(--warning);font-weight:600">⚠️ Panel de administración no disponible en Modo Demo</p><p class="range-hint" style="margin:8px 0 0">Inicia sesión con una cuenta real para acceder.</p></div>`;
+    return;
+  }
+  $('adminContent').innerHTML='<p class="empty-state">Cargando datos...</p>';
+  try{
+    // Get users
+    const{data:users,error:ue}=await sb.from('users').select('id,nombre,rol,fecha_creacion');
+    // Get record counts
+    const today=new Date().toISOString().slice(0,10);
+    const{count:totalRecs}=await sb.from('control_records').select('*',{count:'exact',head:true});
+    const{count:todayRecs}=await sb.from('control_records').select('*',{count:'exact',head:true}).gte('created_at',today+'T00:00:00');
+    const{count:ncRecs}=await sb.from('control_records').select('*',{count:'exact',head:true}).eq('estado','no_conforme');
+    const{data:restaurant}=await sb.from('restaurants').select('nombre,estado_suscripcion').single();
+
+    let html=`<div class="kpi-grid" style="margin-bottom:16px">
+      <div class="kpi-card"><span class="kpi-value">${users?.length||0}</span><span class="kpi-label">Usuarios</span></div>
+      <div class="kpi-card"><span class="kpi-value">${totalRecs||0}</span><span class="kpi-label">Total Registros</span></div>
+      <div class="kpi-card"><span class="kpi-value">${todayRecs||0}</span><span class="kpi-label">Registros Hoy</span></div>
+      <div class="kpi-card kpi-danger"><span class="kpi-value">${ncRecs||0}</span><span class="kpi-label">No Conformes</span></div>
+    </div>`;
+    // Restaurant info
+    if(restaurant){
+      html+=`<div class="form-card"><div class="form-section"><span class="form-section-title">🏢 Empresa</span></div>
+        <p style="font-size:18px;font-weight:700;margin:8px 0">${restaurant.nombre}</p>
+        <p style="font-size:12px;color:var(--text3)">Suscripción: <strong style="color:${restaurant.estado_suscripcion==='activo'?'var(--success)':'var(--warning)'}">
+        ${restaurant.estado_suscripcion.toUpperCase()}</strong></p></div>`;
+    }
+    // Users list
+    if(users&&users.length){
+      html+=`<div class="form-card"><div class="form-section"><span class="form-section-title">👥 Usuarios Registrados</span></div>`;
+      users.forEach(u=>{
+        html+=`<div class="record-item" style="margin-top:8px">
+          <div class="record-badge badge-green"></div>
+          <div class="record-info"><div class="record-title">${u.nombre||'Sin nombre'}</div>
+          <div class="record-meta">${u.rol} · ${new Date(u.fecha_creacion).toLocaleDateString('es-CO')}</div></div></div>`;
+      });
+      html+='</div>';
+    }
+    $('adminContent').innerHTML=html;
+  }catch(e){$('adminContent').innerHTML=`<div class="form-card"><p style="color:var(--danger)">Error cargando datos: ${e.message}</p></div>`}
+}
 
 // ═══ PDF ═══
 function getFilteredRecords(){
@@ -193,10 +338,10 @@ function getFilteredRecords(){
 }
 function handlePreview(){
   const recs=getFilteredRecords();if(!recs.length){toast('No hay registros','error');return}
-  let h='<table class="report-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Estado</th><th>Responsable</th></tr></thead><tbody>';
+  let h='<table class="report-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Estado</th><th>Resp.</th></tr></thead><tbody>';
   recs.forEach(r=>{const d=r.datos||{};let det='';
     if(r.tipo==='pcc')det=`${d.equipo}: ${d.temperatura}°C`;
-    else if(r.tipo==='limpieza')det=`${d.area} — ${d.producto_limpieza||''} / ${d.producto_desinfeccion||''}`;
+    else if(r.tipo==='limpieza')det=`${d.area} — ${d.producto_limpieza||''}`;
     else if(r.tipo==='trazabilidad')det=`${d.lote} — ${d.producto}`;
     h+=`<tr><td>${new Date(r.created_at).toLocaleDateString('es-CO')}</td><td>${r.tipo.toUpperCase()}</td><td>${det}</td><td>${statusLabel(r.estado)}</td><td>${d.responsable||''}</td></tr>`;
   }); h+='</tbody></table>'; $('reportTable').innerHTML=h; $('reportPreview').style.display='block';
@@ -213,15 +358,15 @@ function handleGenPDF(){
   doc.setTextColor(40);doc.setFontSize(10);
   if(tipo)doc.text(`Tipo: ${tipo.toUpperCase()}`,14,y);
   const desde=$('repDesde').value,hasta=$('repHasta').value;
-  if(desde||hasta){doc.text(`Período: ${desde||'...'} — ${hasta||'...'}`,tipo?80:14,y);}
+  if(desde||hasta)doc.text(`Período: ${desde||'...'} — ${hasta||'...'}`,tipo?80:14,y);
   y+=8;
   const conf=recs.filter(r=>r.estado==='conforme').length,nc=recs.filter(r=>r.estado==='no_conforme').length;
   doc.setFontSize(9);
   doc.text(`Total: ${recs.length} | Conformes: ${conf} | No conformes: ${nc} | Conformidad: ${recs.length?Math.round(conf/recs.length*100):100}%`,14,y);
   const rows=recs.map(r=>{const d=r.datos||{};let det='';
     if(r.tipo==='pcc')det=`${d.equipo}: ${d.temperatura}°C (${d.lim_inf}–${d.lim_sup})`;
-    else if(r.tipo==='limpieza')det=`${d.area} | Limp: ${d.producto_limpieza||'-'} | Des: ${d.producto_desinfeccion||'-'} ${d.concentracion||''}`;
-    else if(r.tipo==='trazabilidad')det=`Lote: ${d.lote} | ${d.producto} | Prov: ${d.proveedor||'-'} | Guía: ${d.guia_transporte||'-'}`;
+    else if(r.tipo==='limpieza')det=`${d.area} | ${d.producto_limpieza||'-'} / ${d.producto_desinfeccion||'-'} ${d.concentracion||''}`;
+    else if(r.tipo==='trazabilidad')det=`Lote: ${d.lote} | ${d.producto} | Guía: ${d.guia_transporte||'-'}`;
     return[new Date(r.created_at).toLocaleDateString('es-CO'),r.tipo.toUpperCase(),det,r.estado,d.responsable||'',r.observaciones||''];
   });
   doc.autoTable({startY:y+4,head:[['Fecha','Tipo','Detalle','Estado','Responsable','Obs.']],body:rows,
@@ -236,29 +381,38 @@ function handleGenPDF(){
   doc.save(`HACCP_GDForge_${new Date().toISOString().slice(0,10)}.pdf`);toast('✅ PDF descargado');
 }
 
-// ═══ INIT ═══
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
+  // Auth
   $('loginForm').addEventListener('submit',handleLogin);
   $('registerForm').addEventListener('submit',handleRegister);
+  $('forgotForm').addEventListener('submit',handleForgotPassword);
   $('btnDemo').addEventListener('click',enterDemo);
   $('btnLogout').addEventListener('click',handleLogout);
-  $('showRegister').addEventListener('click',e=>{e.preventDefault();$('loginForm').style.display='none';$('registerForm').style.display='block';document.querySelector('.login-toggle').style.display='none';$('showLoginLink').style.display='block';});
-  $('showLogin').addEventListener('click',e=>{e.preventDefault();$('loginForm').style.display='block';$('registerForm').style.display='none';document.querySelector('.login-toggle').style.display='block';$('showLoginLink').style.display='none';});
+  $('showRegister').addEventListener('click',e=>{e.preventDefault();showRegisterForm()});
+  $('showLogin').addEventListener('click',e=>{e.preventDefault();showLoginForm()});
+  $('showForgot').addEventListener('click',e=>{e.preventDefault();showForgotForm()});
   $('btnSetResp').addEventListener('click',setResponsable);
   $('globalResponsable').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();setResponsable()}});
+  // Nav
   document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>{switchTab(b.dataset.tab);
     if(b.dataset.tab==='tabPCC')refreshPCCList();if(b.dataset.tab==='tabLimpieza')refreshLimpList();if(b.dataset.tab==='tabTraza')refreshTrazaList();}));
+  // Forms
   $('formPCC').addEventListener('submit',handlePCC);
   $('formLimpieza').addEventListener('submit',handleLimpieza);
   $('formTraza').addEventListener('submit',handleTraza);
   $('btnGenPDF').addEventListener('click',handleGenPDF);
   $('btnPreview').addEventListener('click',handlePreview);
   initStatusButtons();
+  // Defaults
   const today=new Date().toISOString().slice(0,10);
   $('repDesde').value=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
-  $('repHasta').value=today; $('trazaIngreso').value=today;
+  $('repHasta').value=today; if($('trazaIngreso'))$('trazaIngreso').value=today;
   $('pccEquipo').addEventListener('change',checkPCCRange);
   $('pccTemp').addEventListener('input',checkPCCRange);
+  // Session
   checkSession();
 });
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
