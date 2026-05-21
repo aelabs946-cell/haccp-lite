@@ -1,7 +1,7 @@
 /* ===== HACCP-Lite v2.1 — GD FORGE — Production Ready ===== */
 
-const SUPABASE_URL = 'https://trhogittkrnzoxseooze.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaG9naXR0a3Juem94c2Vvb3plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNDQ2MjQsImV4cCI6MjA5MzkyMDYyNH0.FYbOBT4iha9DeeMc2nYUQp40IRLgJ7KNC7YILhaWKoE';
+const SUPABASE_URL = 'https://shqfwclzkpgdtgveqmdk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNocWZ3Y2x6a3BnZHRndmVxbWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDA1ODYsImV4cCI6MjA4NzcxNjU4Nn0.EBi8Qxk8vA_xEYV5UX6LvhP_Hoj7Gsng62hTWs1tyLQ';
 const HAS_SUPABASE = !SUPABASE_URL.includes('TU_');
 
 const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashboard', currentStatus:{}, responsable:'', isDemo:false, role:'empleado' };
