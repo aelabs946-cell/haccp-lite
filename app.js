@@ -1,4 +1,4 @@
-/* ===== HACCP-Lite v3.0 — GD FORGE — Admin + Config ===== */
+/* ===== HACCP-Lite v3.1 — GD FORGE — PCC Flexibles + Rechazo MP ===== */
 
 const SUPABASE_URL = 'https://shqfwclzkpgdtgveqmdk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNocWZ3Y2x6a3BnZHRndmVxbWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDA1ODYsImV4cCI6MjA4NzcxNjU4Nn0.EBi8Qxk8vA_xEYV5UX6LvhP_Hoj7Gsng62hTWs1tyLQ';
@@ -8,7 +8,18 @@ const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashbo
   config:{ equipment:[], areas:[], chemicals_clean:[], chemicals_desinf:[], tipos_limpieza:[], metodos:[] }
 };
 const DEFAULTS = {
-  equipment:[{nombre:'Nevera Principal',temp_min:0,temp_max:5},{nombre:'Congelador 1',temp_min:-18,temp_max:-12},{nombre:'Congelador 2',temp_min:-18,temp_max:-12},{nombre:'Cuarto Frío',temp_min:0,temp_max:5},{nombre:'Zona de Despacho',temp_min:0,temp_max:7},{nombre:'Recepción MP',temp_min:0,temp_max:5},{nombre:'Cocción',temp_min:74,temp_max:100},{nombre:'Enfriamiento',temp_min:0,temp_max:5}],
+  equipment:[
+    {nombre:'Nevera Principal',tipo_medicion:'temperatura',unidad:'°C',temp_min:0,temp_max:5},
+    {nombre:'Congelador 1',tipo_medicion:'temperatura',unidad:'°C',temp_min:-18,temp_max:-12},
+    {nombre:'Congelador 2',tipo_medicion:'temperatura',unidad:'°C',temp_min:-18,temp_max:-12},
+    {nombre:'Cuarto Frío',tipo_medicion:'temperatura',unidad:'°C',temp_min:0,temp_max:5},
+    {nombre:'Zona de Despacho',tipo_medicion:'temperatura',unidad:'°C',temp_min:0,temp_max:7},
+    {nombre:'Recepción MP',tipo_medicion:'temperatura',unidad:'°C',temp_min:0,temp_max:5},
+    {nombre:'Cocción',tipo_medicion:'temperatura',unidad:'°C',temp_min:74,temp_max:100},
+    {nombre:'Enfriamiento',tipo_medicion:'temperatura',unidad:'°C',temp_min:0,temp_max:5},
+    {nombre:'Concentración Desinfectante',tipo_medicion:'concentracion',unidad:'ppm',temp_min:100,temp_max:200},
+    {nombre:'Cristales de Sal',tipo_medicion:'presencia_ausencia',unidad:'Sí/No',temp_min:0,temp_max:0}
+  ],
   areas:['Zona de Corte','Zona de Empaque','Cuarto Frío','Área de Despacho','Baños y Vestidores','Equipos y Utensilios','Pisos y Paredes','Zona de Recepción'],
   chemicals_clean:['Jabón desengrasante','Detergente alcalino','Detergente neutro','Desengrasante industrial'],
   chemicals_desinf:['Hipoclorito de sodio','Amonio cuaternario','Ácido peracético','Dióxido de cloro'],
@@ -56,8 +67,11 @@ async function loadConfig(){
 function populateDropdowns(){
   const C=STATE.config;
   // PCC Equipment
-  const pcc=$('pccEquipo'); pcc.innerHTML='<option value="">Seleccionar...</option>';
-  C.equipment.forEach(e=>{ pcc.innerHTML+=`<option value="${e.nombre}" data-min="${e.temp_min}" data-max="${e.temp_max}">${e.nombre}</option>`; });
+  const pcc=$('pccEquipo'); pcc.innerHTML='<option value="">Seleccionar PCC...</option>';
+  C.equipment.forEach(e=>{
+    const tm=e.tipo_medicion||'temperatura', un=e.unidad||'°C';
+    pcc.innerHTML+=`<option value="${e.nombre}" data-min="${e.temp_min}" data-max="${e.temp_max}" data-tipo="${tm}" data-unidad="${un}">${e.nombre} (${un})</option>`;
+  });
   // Limpieza Areas
   const area=$('limpArea'); area.innerHTML='<option value="">Seleccionar...</option>';
   C.areas.forEach(a=>{ area.innerHTML+=`<option>${a}</option>`; });
@@ -223,32 +237,71 @@ async function insertRecord(record){
   }catch(e){toast('⚠️ Guardado local','error');return addRecord(record);}
 }
 
-// ═══ PCC RANGE (dynamic) ═══
+// ═══ PCC — Dynamic Form ═══
+function onPCCChange(){
+  const sel=$('pccEquipo'), opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){
+    $('pccMedicionNum').style.display='block'; $('pccMedicionBool').style.display='none';
+    $('pccRangeIndicator').style.display='none'; return;
+  }
+  const tipo=opt.dataset.tipo||'temperatura', unidad=opt.dataset.unidad||'°C';
+  const min=parseFloat(opt.dataset.min), max=parseFloat(opt.dataset.max);
+
+  if(tipo==='presencia_ausencia'){
+    $('pccMedicionNum').style.display='none'; $('pccMedicionBool').style.display='block';
+    $('pccRangeIndicator').style.display='none';
+    $('pccRange').textContent=`Verificar presencia o ausencia`;
+    $('pccLimInf').value=0; $('pccLimSup').value=0;
+  } else {
+    $('pccMedicionNum').style.display='block'; $('pccMedicionBool').style.display='none';
+    const label=tipo==='concentracion'?`Concentración (${unidad})`:`Temperatura ${unidad}`;
+    $('pccTempLabel').textContent=label;
+    $('pccTemp').placeholder=tipo==='concentracion'?'150':'0.0';
+    if(!isNaN(min)&&!isNaN(max)){
+      $('pccLimInf').value=min; $('pccLimSup').value=max;
+      $('pccRange').textContent=`Rango aceptable: ${min}${unidad} – ${max}${unidad}`;
+    }
+    checkPCCRange();
+  }
+}
+
 function checkPCCRange(){
   const sel=$('pccEquipo'), opt=sel.options[sel.selectedIndex];
   if(!opt||!opt.value){$('pccRangeIndicator').style.display='none';return}
-  const min=parseFloat(opt.dataset.min), max=parseFloat(opt.dataset.max), temp=parseFloat($('pccTemp').value);
-  if(isNaN(min)||isNaN(max)){$('pccRangeIndicator').style.display='none';return}
-  $('pccLimInf').value=min; $('pccLimSup').value=max;
-  $('pccRange').textContent=`Rango aceptable: ${min}°C – ${max}°C`;
-  if(isNaN(temp)){$('pccRangeIndicator').style.display='none';return}
+  const tipo=opt.dataset.tipo||'temperatura';
+  if(tipo==='presencia_ausencia')return;
+  const min=parseFloat(opt.dataset.min), max=parseFloat(opt.dataset.max), val=parseFloat($('pccTemp').value);
+  const unidad=opt.dataset.unidad||'°C';
+  if(isNaN(min)||isNaN(max)||isNaN(val)){$('pccRangeIndicator').style.display='none';return}
   const ind=$('pccRangeIndicator'); ind.style.display='flex';
-  if(temp>=min&&temp<=max){ind.className='range-indicator range-ok';ind.textContent=`✅ ${temp}°C dentro del rango (${min} a ${max}°C)`;}
-  else{ind.className='range-indicator range-danger';ind.textContent=`❌ ${temp}°C FUERA DE RANGO (${min} a ${max}°C)`;}
+  if(val>=min&&val<=max){ind.className='range-indicator range-ok';ind.textContent=`✅ ${val}${unidad} dentro del rango (${min} a ${max}${unidad})`;}
+  else{ind.className='range-indicator range-danger';ind.textContent=`❌ ${val}${unidad} FUERA DE RANGO (${min} a ${max}${unidad})`;}
 }
 
 // ═══ FORM HANDLERS ═══
 async function handlePCC(e){
   e.preventDefault();
-  const equipo=$('pccEquipo').value, temp=parseFloat($('pccTemp').value), resp=$('pccResp').value.trim();
-  if(!equipo||isNaN(temp)||!resp){toast('Completa equipo, temperatura y responsable','error');return}
-  const opt=$('pccEquipo').options[$('pccEquipo').selectedIndex];
-  const limInf=parseFloat(opt.dataset.min)||0, limSup=parseFloat(opt.dataset.max)||5;
-  const fueraRango=temp<limInf||temp>limSup;
+  const sel=$('pccEquipo'), opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){toast('Selecciona un PCC','error');return}
+  const equipo=opt.value, resp=$('pccResp').value.trim();
+  if(!resp){toast('Escribe el responsable','error');return}
+  const tipo_med=opt.dataset.tipo||'temperatura', unidad=opt.dataset.unidad||'°C';
+  const limInf=parseFloat(opt.dataset.min)||0, limSup=parseFloat(opt.dataset.max)||0;
+  let valor, fueraRango=false;
+
+  if(tipo_med==='presencia_ausencia'){
+    valor=$('pccBoolSi').classList.contains('active')?'Presente':'Ausente';
+    fueraRango=false; // Admin decides what's conformeaccording to status buttons
+  } else {
+    valor=parseFloat($('pccTemp').value);
+    if(isNaN(valor)){toast('Ingresa un valor','error');return}
+    fueraRango=valor<limInf||valor>limSup;
+  }
   const estado=STATE.currentStatus['formPCC']||'conforme';
-  const r=await insertRecord({tipo:'pcc',datos:{equipo,temperatura:temp,unidad:'°C',lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp},estado,observaciones:$('pccObs').value.trim(),accion_correctiva:$('pccAccion')?.value?.trim()||''});
-  if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);$('pccRangeIndicator').style.display='none';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  const r=await insertRecord({tipo:'pcc',datos:{equipo,tipo_medicion:tipo_med,valor,unidad,lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp},estado,observaciones:$('pccObs').value.trim(),accion_correctiva:$('pccAccion')?.value?.trim()||''});
+  if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);$('pccRangeIndicator').style.display='none';$('pccMedicionBool').style.display='none';$('pccMedicionNum').style.display='block';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
+
 async function handleLimpieza(e){
   e.preventDefault();
   const area=$('limpArea').value, prod=$('limpProducto').value.trim(), resp=$('limpResp').value.trim();
@@ -258,13 +311,31 @@ async function handleLimpieza(e){
   const r=await insertRecord({tipo:'limpieza',datos:{area,tipo_limpieza:$('limpTipo').value,producto_limpieza:prod,producto_desinfeccion:$('limpDesinf').value.trim(),concentracion:$('limpConc').value.trim(),tiempo_contacto:$('limpTiempo').value.trim(),metodo:$('limpMetodo').value,enjuague_final:enjuague,responsable:resp},estado,observaciones:$('limpObs').value.trim()});
   if(r){toast('✅ Limpieza registrada');$('formLimpieza').reset();fillResponsable(STATE.responsable);refreshLimpList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
+
 async function handleTraza(e){
   e.preventDefault();
   const lote=$('trazaLote').value.trim(), prod=$('trazaProd').value.trim(), resp=$('trazaResp').value.trim();
   if(!lote||!prod||!resp){toast('Completa lote, producto y responsable','error');return}
   const estado=STATE.currentStatus['formTraza']||STATE.currentStatus['trazaStatus']||'conforme';
-  const r=await insertRecord({tipo:'trazabilidad',datos:{lote,producto:prod,proveedor:$('trazaProv').value.trim(),registro_invima:$('trazaInvima').value.trim(),cantidad:$('trazaCant').value.trim(),fecha_ingreso:$('trazaIngreso').value,fecha_vencimiento:$('trazaVence').value,temp_recepcion:parseFloat($('trazaTemp').value)||null,temp_vehiculo:parseFloat($('trazaTempVeh').value)||null,guia_transporte:$('trazaGuia').value.trim(),placa_vehiculo:$('trazaPlaca').value.trim(),vehiculo_limpieza:$('trazaVehLimp').value,vehiculo_refrigeracion:$('trazaVehRefri').value,responsable:resp},estado,observaciones:$('trazaObs').value.trim()});
-  if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  const rechazado=$('trazaRechSi')?.classList.contains('active')||false;
+  const datos={lote,producto:prod,proveedor:$('trazaProv').value.trim(),registro_invima:$('trazaInvima').value.trim(),
+    cantidad:$('trazaCant').value.trim(),fecha_ingreso:$('trazaIngreso').value,fecha_vencimiento:$('trazaVence').value,
+    temp_recepcion:parseFloat($('trazaTemp').value)||null,temp_vehiculo:parseFloat($('trazaTempVeh').value)||null,
+    guia_transporte:$('trazaGuia').value.trim(),placa_vehiculo:$('trazaPlaca').value.trim(),
+    vehiculo_limpieza:$('trazaVehLimp').value,vehiculo_refrigeracion:$('trazaVehRefri').value,
+    rechazado,responsable:resp};
+  if(rechazado){
+    datos.motivo_rechazo=$('trazaMotivoRechazo').value.trim();
+    datos.destino_rechazo=$('trazaDestinoRechazo').value;
+  }
+  const r=await insertRecord({tipo:'trazabilidad',datos,estado,observaciones:$('trazaObs').value.trim()});
+  if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);$('trazaRechazoFields').style.display='none';refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+}
+
+// ═══ TRAZA RECHAZO TOGGLE ═══
+function initRechazoToggle(){
+  $('trazaRechSi')?.addEventListener('click',()=>{$('trazaRechSi').classList.add('active');$('trazaRechNo').classList.remove('active');$('trazaRechazoFields').style.display='block';});
+  $('trazaRechNo')?.addEventListener('click',()=>{$('trazaRechNo').classList.add('active');$('trazaRechSi').classList.remove('active');$('trazaRechazoFields').style.display='none';});
 }
 
 // ═══ RENDER ═══
@@ -274,9 +345,14 @@ function timeAgo(iso){const d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)
 function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦'}[t]||'📋'}
 function recordHTML(r){
   const d=r.datos||{};let title='',value='',resp=d.responsable||'';
-  if(r.tipo==='pcc'){title=d.equipo||'PCC';value=`${d.temperatura}°C`;if(d.fuera_rango)value=`⚠️${value}`}
+  if(r.tipo==='pcc'){
+    title=d.equipo||'PCC';
+    if(d.tipo_medicion==='presencia_ausencia') value=d.valor||'';
+    else value=`${d.valor||d.temperatura||''}${d.unidad||'°C'}`;
+    if(d.fuera_rango)value=`⚠️${value}`;
+  }
   else if(r.tipo==='limpieza'){title=d.area||'Limpieza';value=d.tipo_limpieza||d.producto_limpieza||''}
-  else if(r.tipo==='trazabilidad'){title=d.lote||'Lote';value=d.producto||''}
+  else if(r.tipo==='trazabilidad'){title=d.lote||'Lote';value=d.producto||'';if(d.rechazado)value='❌ RECHAZADO — '+value}
   return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}</div></div><div class="record-value">${value}</div></div>`;
 }
 function refreshDashboard(){
@@ -303,7 +379,6 @@ async function loadAdminData(){
   loadAdminCompany(); loadAdminEquipment(); loadAdminAreas(); loadAdminChemicals(); loadAdminUsers();
 }
 
-// --- Company Info ---
 async function loadAdminCompany(){
   if(STATE.isDemo) return;
   const r=STATE.restaurant_info||{};
@@ -316,27 +391,37 @@ async function saveCompanyInfo(){
   if(error)toast('Error: '+error.message,'error'); else{toast('✅ Empresa actualizada');STATE.restaurant_info={...STATE.restaurant_info,...data};}
 }
 
-// --- Equipment ---
+// --- PCC Equipment ---
 async function loadAdminEquipment(){
   const list=$('equipList'); list.innerHTML='';
-  STATE.config.equipment.forEach((e,i)=>{
-    list.innerHTML+=`<div class="config-item"><span class="config-name">🌡️ ${e.nombre}</span><span class="config-detail">${e.temp_min}°C — ${e.temp_max}°C</span>${STATE.isDemo?'':`<button class="config-del" onclick="deleteEquipment('${e.id}')">✕</button>`}</div>`;
+  const tipoLabels={temperatura:'🌡️ Temp.',concentracion:'🧪 Conc.',presencia_ausencia:'🔍 Pres/Aus'};
+  STATE.config.equipment.forEach(e=>{
+    const tm=e.tipo_medicion||'temperatura', un=e.unidad||'°C';
+    const detail=tm==='presencia_ausencia'?'Sí/No':`${e.temp_min}${un} — ${e.temp_max}${un}`;
+    list.innerHTML+=`<div class="config-item"><span class="config-name">${tipoLabels[tm]||'📋'} ${e.nombre}</span><span class="config-detail">${detail}</span>${STATE.isDemo?'':`<button class="config-del" onclick="deleteEquipment('${e.id}')">✕</button>`}</div>`;
   });
 }
 async function addEquipment(){
-  const nombre=$('eqNombre').value.trim(), min=parseFloat($('eqMin').value), max=parseFloat($('eqMax').value);
-  if(!nombre||isNaN(min)||isNaN(max)){toast('Completa nombre y temperaturas','error');return}
-  if(STATE.isDemo){STATE.config.equipment.push({nombre,temp_min:min,temp_max:max});populateDropdowns();loadAdminEquipment();toast('✅ Equipo agregado');$('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';return}
-  const{error}=await sb.from('equipment').insert([{restaurant_id:STATE.restaurant_id,nombre,temp_min:min,temp_max:max}]);
+  const nombre=$('eqNombre').value.trim(), tipoMed=$('eqTipoMed').value;
+  if(!nombre){toast('Escribe un nombre','error');return}
+  let min=0,max=0,unidad='°C';
+  if(tipoMed==='presencia_ausencia'){unidad='Sí/No'; min=0; max=0;}
+  else{
+    min=parseFloat($('eqMin').value); max=parseFloat($('eqMax').value);
+    if(isNaN(min)||isNaN(max)){toast('Completa los rangos','error');return}
+    unidad=tipoMed==='concentracion'?($('eqUnidad').value||'ppm'):'°C';
+  }
+  if(STATE.isDemo){STATE.config.equipment.push({nombre,tipo_medicion:tipoMed,unidad,temp_min:min,temp_max:max});populateDropdowns();loadAdminEquipment();toast('✅ PCC agregado');$('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';return}
+  const{error}=await sb.from('equipment').insert([{restaurant_id:STATE.restaurant_id,nombre,tipo_medicion:tipoMed,unidad,temp_min:min,temp_max:max}]);
   if(error){toast('Error: '+error.message,'error');return}
-  toast('✅ Equipo agregado'); $('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';
+  toast('✅ PCC agregado'); $('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';
   await loadConfig(); loadAdminEquipment();
 }
 async function deleteEquipment(id){
-  if(!confirm('¿Eliminar este equipo?'))return;
+  if(!confirm('¿Eliminar este PCC?'))return;
   const{error}=await sb.from('equipment').delete().eq('id',id);
   if(error){toast('Error','error');return}
-  toast('Equipo eliminado'); await loadConfig(); loadAdminEquipment();
+  toast('PCC eliminado'); await loadConfig(); loadAdminEquipment();
 }
 
 // --- Areas ---
@@ -353,10 +438,7 @@ async function updateRestaurantConfig(){
   populateDropdowns();
 }
 function loadAdminAreas(){renderConfigList(STATE.config.areas,'areaList','deleteArea');}
-async function addArea(){
-  const v=$('newArea').value.trim(); if(!v){toast('Escribe un nombre','error');return}
-  STATE.config.areas.push(v); await updateRestaurantConfig(); loadAdminAreas(); $('newArea').value=''; toast('✅ Área agregada');
-}
+async function addArea(){const v=$('newArea').value.trim();if(!v){toast('Escribe un nombre','error');return}STATE.config.areas.push(v);await updateRestaurantConfig();loadAdminAreas();$('newArea').value='';toast('✅ Área agregada');}
 async function deleteArea(i){STATE.config.areas.splice(i,1);await updateRestaurantConfig();loadAdminAreas();toast('Área eliminada');}
 
 // --- Chemicals ---
@@ -396,6 +478,14 @@ async function changeUserRole(userId, newRole){
   if(error)toast('Error: '+error.message,'error'); else toast(`✅ Rol cambiado a ${newRole}`);
 }
 
+// ═══ EQ TYPE TOGGLE ═══
+function onEqTipoChange(){
+  const tipo=$('eqTipoMed').value;
+  if(tipo==='presencia_ausencia'){$('eqRangoFields').style.display='none';}
+  else{$('eqRangoFields').style.display='flex';
+    $('eqUnidadLabel').textContent=tipo==='concentracion'?'Unidad: ppm':'Unidad: °C';}
+}
+
 // ═══ PDF ═══
 function getFilteredRecords(){
   let r=STATE.records; const t=$('repTipo').value,d=$('repDesde').value,h=$('repHasta').value;
@@ -405,9 +495,9 @@ function handlePreview(){
   const recs=getFilteredRecords();if(!recs.length){toast('No hay registros','error');return}
   let h='<table class="report-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Estado</th><th>Resp.</th></tr></thead><tbody>';
   recs.forEach(r=>{const d=r.datos||{};let det='';
-    if(r.tipo==='pcc')det=`${d.equipo}: ${d.temperatura}°C`;
+    if(r.tipo==='pcc')det=`${d.equipo}: ${d.valor||d.temperatura||''}${d.unidad||'°C'}`;
     else if(r.tipo==='limpieza')det=`${d.area} — ${d.producto_limpieza||''}`;
-    else if(r.tipo==='trazabilidad')det=`${d.lote} — ${d.producto}`;
+    else if(r.tipo==='trazabilidad'){det=`${d.lote} — ${d.producto}`;if(d.rechazado)det+=' [RECHAZADO → '+d.destino_rechazo+']';}
     h+=`<tr><td>${new Date(r.created_at).toLocaleDateString('es-CO')}</td><td>${r.tipo.toUpperCase()}</td><td>${det}</td><td>${statusLabel(r.estado)}</td><td>${d.responsable||''}</td></tr>`;
   }); h+='</tbody></table>'; $('reportTable').innerHTML=h; $('reportPreview').style.display='block';
 }
@@ -426,9 +516,9 @@ function handleGenPDF(){
   const conf=recs.filter(r=>r.estado==='conforme').length,nc=recs.filter(r=>r.estado==='no_conforme').length;
   doc.setFontSize(9);doc.text(`Total: ${recs.length} | Conformes: ${conf} | No conformes: ${nc} | Conformidad: ${recs.length?Math.round(conf/recs.length*100):100}%`,14,y);
   const rows=recs.map(r=>{const d=r.datos||{};let det='';
-    if(r.tipo==='pcc')det=`${d.equipo}: ${d.temperatura}°C (${d.lim_inf}–${d.lim_sup})`;
+    if(r.tipo==='pcc')det=`${d.equipo}: ${d.valor||d.temperatura||''}${d.unidad||'°C'} (${d.lim_inf}–${d.lim_sup})`;
     else if(r.tipo==='limpieza')det=`${d.area} | ${d.producto_limpieza||'-'} / ${d.producto_desinfeccion||'-'}`;
-    else if(r.tipo==='trazabilidad')det=`Lote: ${d.lote} | ${d.producto}`;
+    else if(r.tipo==='trazabilidad'){det=`Lote: ${d.lote} | ${d.producto}`;if(d.rechazado)det+=' [RECHAZADO]';}
     return[new Date(r.created_at).toLocaleDateString('es-CO'),r.tipo.toUpperCase(),det,r.estado,d.responsable||'',r.observaciones||''];
   });
   doc.autoTable({startY:y+4,head:[['Fecha','Tipo','Detalle','Estado','Resp.','Obs.']],body:rows,
@@ -462,11 +552,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('formTraza').addEventListener('submit',handleTraza);
   $('btnGenPDF').addEventListener('click',handleGenPDF);
   $('btnPreview').addEventListener('click',handlePreview);
-  initStatusButtons();
+  initStatusButtons(); initRechazoToggle();
   const today=new Date().toISOString().slice(0,10);
   $('repDesde').value=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
   $('repHasta').value=today; if($('trazaIngreso'))$('trazaIngreso').value=today;
-  $('pccEquipo').addEventListener('change',checkPCCRange);
+  $('pccEquipo').addEventListener('change',onPCCChange);
   $('pccTemp').addEventListener('input',checkPCCRange);
   // Admin buttons
   $('btnSaveCompany')?.addEventListener('click',saveCompanyInfo);
@@ -474,6 +564,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('btnAddArea')?.addEventListener('click',addArea);
   $('btnAddChemClean')?.addEventListener('click',addChemClean);
   $('btnAddChemDesinf')?.addEventListener('click',addChemDesinf);
+  $('eqTipoMed')?.addEventListener('change',onEqTipoChange);
   checkSession();
 });
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

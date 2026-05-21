@@ -87,16 +87,27 @@
       <h2 class="section-title">🌡️ PCC — Puntos Críticos</h2>
       <form id="formPCC" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Punto de Control</span></div>
-        <label class="label">Equipo / Punto de Control</label>
-        <select id="pccEquipo" class="input"><option value="">Seleccionar...</option></select>
-        <div class="form-section"><span class="form-section-title">🌡️ Medición</span></div>
-        <label class="label">Temperatura °C</label>
-        <input type="number" id="pccTemp" class="input input-big" placeholder="0.0" step="0.1" required>
-        <div class="range-hint" id="pccRange">Rango aceptable: —</div>
-        <div id="pccRangeIndicator" class="range-indicator" style="display:none"></div>
-        <div class="input-row">
-          <div class="input-col"><label class="label">Límite Inferior °C</label><input type="number" id="pccLimInf" class="input" step="0.1" value="0"></div>
-          <div class="input-col"><label class="label">Límite Superior °C</label><input type="number" id="pccLimSup" class="input" step="0.1" value="5"></div>
+        <label class="label">PCC — Punto Crítico de Control</label>
+        <select id="pccEquipo" class="input"><option value="">Seleccionar PCC...</option></select>
+        <div class="form-section"><span class="form-section-title">📏 Medición</span></div>
+        <!-- Medición numérica (temperatura/concentración) -->
+        <div id="pccMedicionNum">
+          <label class="label" id="pccTempLabel">Temperatura °C</label>
+          <input type="number" id="pccTemp" class="input input-big" placeholder="0.0" step="0.1">
+          <div class="range-hint" id="pccRange">Rango aceptable: —</div>
+          <div id="pccRangeIndicator" class="range-indicator" style="display:none"></div>
+          <div class="input-row">
+            <div class="input-col"><label class="label">Límite Inferior</label><input type="number" id="pccLimInf" class="input" step="0.1" value="0"></div>
+            <div class="input-col"><label class="label">Límite Superior</label><input type="number" id="pccLimSup" class="input" step="0.1" value="5"></div>
+          </div>
+        </div>
+        <!-- Medición presencia/ausencia -->
+        <div id="pccMedicionBool" style="display:none">
+          <label class="label">Resultado</label>
+          <div class="input-row" style="margin-bottom:12px">
+            <button type="button" class="status-btn active" id="pccBoolSi" data-val="presente">✅ Presente</button>
+            <button type="button" class="status-btn" id="pccBoolNo" data-val="ausente">❌ Ausente</button>
+          </div>
         </div>
         <div class="form-section"><span class="form-section-title">📋 Evaluación</span></div>
         <label class="label">Estado</label>
@@ -192,6 +203,25 @@
           <select id="trazaVehLimp" class="input"><option value="">Limpieza...</option><option>Limpio</option><option>Aceptable</option><option>Sucio</option></select>
           <select id="trazaVehRefri" class="input"><option value="">Refrigeración...</option><option>Refrigerado</option><option>No Refrigerado</option><option>Congelado</option></select>
         </div>
+        <div class="form-section"><span class="form-section-title">🚫 Rechazo de Materia Prima</span></div>
+        <label class="label">¿Materia prima rechazada?</label>
+        <div class="input-row" style="margin-bottom:12px">
+          <button type="button" class="status-btn" id="trazaRechSi" data-val="si">❌ Sí, Rechazada</button>
+          <button type="button" class="status-btn active" id="trazaRechNo" data-val="no">✅ No, Aceptada</button>
+        </div>
+        <div id="trazaRechazoFields" style="display:none">
+          <label class="label">Motivo del Rechazo</label>
+          <textarea id="trazaMotivoRechazo" class="input textarea" rows="2" placeholder="Ej: Temperatura fuera de rango, producto vencido, empaque dañado..."></textarea>
+          <label class="label">Destino del Producto Rechazado</label>
+          <select id="trazaDestinoRechazo" class="input">
+            <option value="">Seleccionar destino...</option>
+            <option>Devolución al proveedor</option>
+            <option>Destrucción / Desecho</option>
+            <option>Reprocesamiento</option>
+            <option>Cuarentena para evaluación</option>
+            <option>Donación (si aplica)</option>
+          </select>
+        </div>
         <div class="form-section"><span class="form-section-title">📋 Evaluación</span></div>
         <label class="label">Estado</label>
         <div class="status-btns" id="trazaStatus">
@@ -249,18 +279,25 @@
           <button class="btn btn-primary btn-block" id="btnSaveCompany">💾 Guardar Datos Empresa</button>
         </div>
 
-        <!-- Equipos PCC -->
+        <!-- PCC -->
         <div class="form-card">
-          <div class="form-section"><span class="form-section-title">🌡️ Equipos PCC</span></div>
-          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Estos equipos aparecen en el formulario PCC con sus rangos de temperatura.</p>
+          <div class="form-section"><span class="form-section-title">🌡️ Puntos Críticos de Control (PCC)</span></div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Estos PCC aparecen en el formulario. Puedes agregar temperatura, concentración, o verificación de presencia/ausencia.</p>
           <div id="equipList"></div>
-          <div class="form-section" style="margin-top:12px"><span class="form-section-title">➕ Agregar Equipo</span></div>
-          <input id="eqNombre" class="input" placeholder="Nombre del equipo (ej: Horno Industrial)">
-          <div class="input-row">
-            <div class="input-col"><label class="label">Temp. Mín °C</label><input type="number" id="eqMin" class="input" step="0.1" placeholder="0"></div>
-            <div class="input-col"><label class="label">Temp. Máx °C</label><input type="number" id="eqMax" class="input" step="0.1" placeholder="5"></div>
+          <div class="form-section" style="margin-top:12px"><span class="form-section-title">➕ Agregar Nuevo PCC</span></div>
+          <input id="eqNombre" class="input" placeholder="Nombre del PCC (ej: Concentración Cloro)">
+          <label class="label">Tipo de Medición</label>
+          <select id="eqTipoMed" class="input">
+            <option value="temperatura">🌡️ Temperatura (°C)</option>
+            <option value="concentracion">🧪 Concentración (ppm)</option>
+            <option value="presencia_ausencia">🔍 Presencia / Ausencia</option>
+          </select>
+          <div class="input-row" id="eqRangoFields">
+            <div class="input-col"><label class="label">Valor Mínimo</label><input type="number" id="eqMin" class="input" step="0.1" placeholder="0"></div>
+            <div class="input-col"><label class="label">Valor Máximo</label><input type="number" id="eqMax" class="input" step="0.1" placeholder="5"></div>
           </div>
-          <button class="btn btn-primary btn-block" id="btnAddEquip">➕ Agregar Equipo</button>
+          <p class="range-hint" id="eqUnidadLabel">Unidad: °C</p>
+          <button class="btn btn-primary btn-block" id="btnAddEquip">➕ Agregar Nuevo PCC</button>
         </div>
 
         <!-- Áreas de Limpieza -->
