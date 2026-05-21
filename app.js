@@ -1,14 +1,19 @@
-/* ===== HACCP-Lite v2.1 — GD FORGE — Production Ready ===== */
+/* ===== HACCP-Lite v3.0 — GD FORGE — Admin + Config ===== */
 
 const SUPABASE_URL = 'https://shqfwclzkpgdtgveqmdk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNocWZ3Y2x6a3BnZHRndmVxbWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDA1ODYsImV4cCI6MjA4NzcxNjU4Nn0.EBi8Qxk8vA_xEYV5UX6LvhP_Hoj7Gsng62hTWs1tyLQ';
 const HAS_SUPABASE = !SUPABASE_URL.includes('TU_');
 
-const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashboard', currentStatus:{}, responsable:'', isDemo:false, role:'empleado' };
-const RANGES = {
-  'Nevera Principal':[0,5],'Congelador 1':[-18,-12],'Congelador 2':[-18,-12],
-  'Cuarto Frío':[0,5],'Zona de Despacho':[0,7],'Recepción MP':[0,5],
-  'Cocción':[74,100],'Enfriamiento':[0,5]
+const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashboard', currentStatus:{}, responsable:'', isDemo:false, role:'empleado',
+  config:{ equipment:[], areas:[], chemicals_clean:[], chemicals_desinf:[], tipos_limpieza:[], metodos:[] }
+};
+const DEFAULTS = {
+  equipment:[{nombre:'Nevera Principal',temp_min:0,temp_max:5},{nombre:'Congelador 1',temp_min:-18,temp_max:-12},{nombre:'Congelador 2',temp_min:-18,temp_max:-12},{nombre:'Cuarto Frío',temp_min:0,temp_max:5},{nombre:'Zona de Despacho',temp_min:0,temp_max:7},{nombre:'Recepción MP',temp_min:0,temp_max:5},{nombre:'Cocción',temp_min:74,temp_max:100},{nombre:'Enfriamiento',temp_min:0,temp_max:5}],
+  areas:['Zona de Corte','Zona de Empaque','Cuarto Frío','Área de Despacho','Baños y Vestidores','Equipos y Utensilios','Pisos y Paredes','Zona de Recepción'],
+  chemicals_clean:['Jabón desengrasante','Detergente alcalino','Detergente neutro','Desengrasante industrial'],
+  chemicals_desinf:['Hipoclorito de sodio','Amonio cuaternario','Ácido peracético','Dióxido de cloro'],
+  tipos_limpieza:['Pre-operativa','Operativa','Post-operativa'],
+  metodos:['Aspersión','Inmersión','Frotado','Nebulización']
 };
 
 let sb = null;
@@ -27,22 +32,64 @@ function saveRecords(r){ localStorage.setItem('haccp_records',JSON.stringify(r))
 function addRecord(r){ const rec={...r,id:crypto.randomUUID(),created_at:new Date().toISOString()}; const recs=getRecords(); recs.unshift(rec); saveRecords(recs); STATE.records=recs; return rec; }
 
 // ══════════════════════════════
+// CONFIG — Dynamic Dropdowns
+// ══════════════════════════════
+async function loadConfig(){
+  if(STATE.isDemo){ STATE.config={...DEFAULTS}; populateDropdowns(); return; }
+  try{
+    const{data:equip}=await sb.from('equipment').select('*').eq('activo',true).order('nombre');
+    const{data:rest}=await sb.from('restaurants').select('config,nombre,nit,direccion,telefono').single();
+    const c=rest?.config||{};
+    STATE.config={
+      equipment:equip||DEFAULTS.equipment,
+      areas:c.areas_limpieza||DEFAULTS.areas,
+      chemicals_clean:c.productos_limpieza||DEFAULTS.chemicals_clean,
+      chemicals_desinf:c.productos_desinfeccion||DEFAULTS.chemicals_desinf,
+      tipos_limpieza:c.tipos_limpieza||DEFAULTS.tipos_limpieza,
+      metodos:c.metodos_limpieza||DEFAULTS.metodos
+    };
+    STATE.restaurant_info=rest||{};
+  }catch(e){ STATE.config={...DEFAULTS}; }
+  populateDropdowns();
+}
+
+function populateDropdowns(){
+  const C=STATE.config;
+  // PCC Equipment
+  const pcc=$('pccEquipo'); pcc.innerHTML='<option value="">Seleccionar...</option>';
+  C.equipment.forEach(e=>{ pcc.innerHTML+=`<option value="${e.nombre}" data-min="${e.temp_min}" data-max="${e.temp_max}">${e.nombre}</option>`; });
+  // Limpieza Areas
+  const area=$('limpArea'); area.innerHTML='<option value="">Seleccionar...</option>';
+  C.areas.forEach(a=>{ area.innerHTML+=`<option>${a}</option>`; });
+  // Tipo Limpieza
+  const tipo=$('limpTipo'); tipo.innerHTML='<option value="">Seleccionar...</option>';
+  C.tipos_limpieza.forEach(t=>{ tipo.innerHTML+=`<option>${t}</option>`; });
+  // Metodo
+  const met=$('limpMetodo'); met.innerHTML='<option value="">—</option>';
+  C.metodos.forEach(m=>{ met.innerHTML+=`<option>${m}</option>`; });
+  // Datalists
+  let dl1=$('listaLimpieza'); if(!dl1){dl1=document.createElement('datalist');dl1.id='listaLimpieza';document.body.appendChild(dl1);}
+  dl1.innerHTML=''; C.chemicals_clean.forEach(c=>{dl1.innerHTML+=`<option value="${c}">`;});
+  let dl2=$('listaDesinf'); if(!dl2){dl2=document.createElement('datalist');dl2.id='listaDesinf';document.body.appendChild(dl2);}
+  dl2.innerHTML=''; C.chemicals_desinf.forEach(c=>{dl2.innerHTML+=`<option value="${c}">`;});
+}
+
+// ══════════════════════════════
 // AUTH
 // ══════════════════════════════
 function enterDemo(){
-  STATE.isDemo=true; STATE.user={email:'demo@gdforge.app',id:'demo'}; STATE.restaurant_id='demo'; STATE.records=getRecords();
+  STATE.isDemo=true; STATE.user={email:'demo@gdforge.app',id:'demo'}; STATE.restaurant_id='demo'; STATE.records=getRecords(); STATE.role='admin';
   $('loginScreen').style.display='none'; $('appMain').style.display='flex';
-  $('headerUser').textContent='Modo Demo'; $('headerMode').textContent='DEMO';
-  $('headerMode').style.display='inline-block';
+  $('headerUser').textContent='Modo Demo'; $('headerMode').textContent='DEMO'; $('headerMode').style.display='inline-block';
   const saved=localStorage.getItem('haccp_responsable');
   if(saved){STATE.responsable=saved; fillResponsable(saved); $('responsableBar').style.display='none';}
   else $('responsableBar').style.display='block';
-  refreshDashboard();
+  loadConfig().then(()=>{ refreshDashboard(); applyRole(); });
 }
 
 async function handleLogin(e){
   e.preventDefault();
-  if(!HAS_SUPABASE){toast('Supabase no configurado — usa Modo Demo','error','toast');return}
+  if(!HAS_SUPABASE){toast('Supabase no configurado','error','toast');return}
   const email=$('loginEmail').value.trim(), pass=$('loginPass').value;
   if(!email||!pass){toast('Completa email y contraseña','error','toast');return}
   $('btnLogin').textContent='Cargando...'; $('btnLogin').disabled=true;
@@ -50,10 +97,9 @@ async function handleLogin(e){
     const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
     $('btnLogin').textContent='Iniciar Sesión'; $('btnLogin').disabled=false;
     if(error){
-      if(error.message.includes('Invalid login')){toast('Email o contraseña incorrectos','error','toast')}
-      else if(error.message.includes('Email not confirmed')){toast('Revisa tu email y confirma tu cuenta','error','toast')}
-      else toast(error.message,'error','toast');
-      return;
+      if(error.message.includes('Invalid login'))toast('Email o contraseña incorrectos','error','toast');
+      else if(error.message.includes('Email not confirmed'))toast('Revisa tu email y confirma tu cuenta','error','toast');
+      else toast(error.message,'error','toast'); return;
     }
     await enterApp(data.user);
   }catch(err){$('btnLogin').textContent='Iniciar Sesión';$('btnLogin').disabled=false;toast('Error de conexión','error','toast')}
@@ -61,41 +107,37 @@ async function handleLogin(e){
 
 async function handleRegister(e){
   e.preventDefault();
-  if(!HAS_SUPABASE){toast('Supabase no configurado — usa Modo Demo','error','toast');return}
+  if(!HAS_SUPABASE){toast('Supabase no configurado','error','toast');return}
   const email=$('regEmail').value.trim(), pass=$('regPass').value, name=$('regName').value.trim();
   if(!email||!pass||!name){toast('Completa todos los campos','error','toast');return}
-  if(pass.length<6){toast('La contraseña debe tener al menos 6 caracteres','error','toast');return}
+  if(pass.length<6){toast('Mínimo 6 caracteres','error','toast');return}
   $('btnRegister').textContent='Creando...'; $('btnRegister').disabled=true;
   try{
-    const{data,error}=await sb.auth.signUp({email,password:pass,
-      options:{data:{full_name:name},emailRedirectTo:window.location.origin+window.location.pathname}});
+    const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name},emailRedirectTo:window.location.origin+window.location.pathname}});
     $('btnRegister').textContent='Crear Cuenta'; $('btnRegister').disabled=false;
     if(error){toast(error.message,'error','toast');return}
     if(data.user?.identities?.length===0){toast('Ya existe una cuenta con ese email','error','toast');return}
-    toast('✅ ¡Cuenta creada! Revisa tu email para confirmarla.','success','toast');
-  }catch(err){$('btnRegister').textContent='Crear Cuenta';$('btnRegister').disabled=false;toast('Error de conexión','error','toast')}
+    toast('✅ ¡Cuenta creada! Inicia sesión.','success','toast'); showLoginForm();
+  }catch(err){$('btnRegister').textContent='Crear Cuenta';$('btnRegister').disabled=false;toast('Error','error','toast')}
 }
 
 async function handleForgotPassword(e){
   e.preventDefault();
   const email=$('forgotEmail').value.trim();
   if(!email){toast('Escribe tu email','error','toast');return}
-  if(!HAS_SUPABASE){toast('Supabase no configurado','error','toast');return}
   $('btnForgot').textContent='Enviando...'; $('btnForgot').disabled=true;
   try{
     const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});
     $('btnForgot').textContent='Enviar Link'; $('btnForgot').disabled=false;
     if(error){toast(error.message,'error','toast');return}
-    toast('✅ Revisa tu email — te enviamos un link para cambiar tu contraseña','success','toast');
-    showLoginForm();
-  }catch(err){$('btnForgot').textContent='Enviar Link';$('btnForgot').disabled=false;toast('Error de conexión','error','toast')}
+    toast('✅ Revisa tu email','success','toast'); showLoginForm();
+  }catch(err){$('btnForgot').textContent='Enviar Link';$('btnForgot').disabled=false;toast('Error','error','toast')}
 }
 
 async function enterApp(user){
   STATE.isDemo=false; STATE.user=user;
   $('loginScreen').style.display='none'; $('appMain').style.display='flex';
-  $('headerUser').textContent=user.email; $('headerMode').textContent='☁️';
-  $('headerMode').style.display='inline-block';
+  $('headerUser').textContent=user.email; $('headerMode').textContent='☁️'; $('headerMode').style.display='inline-block';
   try{
     const{data}=await sb.from('users').select('restaurant_id,nombre,rol').eq('id',user.id).single();
     if(data){
@@ -104,48 +146,34 @@ async function enterApp(user){
       else $('responsableBar').style.display='block';
     } else $('responsableBar').style.display='block';
   }catch(e){$('responsableBar').style.display='block'}
-  await loadRecords(); refreshDashboard();
-  // Show admin tab for admin users
-  const adminTab=$('navAdmin');
-  if(adminTab) adminTab.style.display=(STATE.role==='admin')?'flex':'none';
+  await loadConfig(); await loadRecords(); refreshDashboard(); applyRole();
+}
+
+function applyRole(){
+  const isAdmin=STATE.role==='admin';
+  const nav=$('navAdmin'); if(nav) nav.style.display=isAdmin?'flex':'none';
 }
 
 async function handleLogout(){
   if(!STATE.isDemo&&sb) await sb.auth.signOut();
   STATE.user=null; STATE.isDemo=false; STATE.role='empleado'; STATE.records=[];
   $('appMain').style.display='none'; $('loginScreen').style.display='flex';
-  $('headerMode').style.display='none';
-  showLoginForm();
+  $('headerMode').style.display='none'; showLoginForm();
 }
 
 async function checkSession(){
   if(!HAS_SUPABASE)return;
-  try{
-    const{data:{session}}=await sb.auth.getSession();
-    if(session) await enterApp(session.user);
-  }catch(e){}
+  try{ const{data:{session}}=await sb.auth.getSession(); if(session) await enterApp(session.user); }catch(e){}
 }
 
-// ═══ LOGIN FORMS NAVIGATION ═══
-function showLoginForm(){
-  $('loginForm').style.display='block';$('registerForm').style.display='none';
-  $('forgotForm').style.display='none';$('loginToggle').style.display='block';
-  $('showLoginLink').style.display='none';
-}
-function showRegisterForm(){
-  $('loginForm').style.display='none';$('registerForm').style.display='block';
-  $('forgotForm').style.display='none';$('loginToggle').style.display='none';
-  $('showLoginLink').style.display='block';
-}
-function showForgotForm(){
-  $('loginForm').style.display='none';$('registerForm').style.display='none';
-  $('forgotForm').style.display='block';$('loginToggle').style.display='none';
-  $('showLoginLink').style.display='block';
-}
+// ═══ LOGIN NAV ═══
+function showLoginForm(){$('loginForm').style.display='block';$('registerForm').style.display='none';$('forgotForm').style.display='none';$('loginToggle').style.display='block';$('showLoginLink').style.display='none';}
+function showRegisterForm(){$('loginForm').style.display='none';$('registerForm').style.display='block';$('forgotForm').style.display='none';$('loginToggle').style.display='none';$('showLoginLink').style.display='block';}
+function showForgotForm(){$('loginForm').style.display='none';$('registerForm').style.display='none';$('forgotForm').style.display='block';$('loginToggle').style.display='none';$('showLoginLink').style.display='block';}
 
 // ═══ RESPONSABLE ═══
-function fillResponsable(name){ ['pccResp','limpResp','trazaResp'].forEach(id=>{if($(id))$(id).value=name}); }
-function setResponsable(){ const n=$('globalResponsable').value.trim(); if(!n){toast('Escribe tu nombre','error');return;} STATE.responsable=n; localStorage.setItem('haccp_responsable',n); fillResponsable(n); $('responsableBar').style.display='none'; toast('👤 '+n); }
+function fillResponsable(name){['pccResp','limpResp','trazaResp'].forEach(id=>{if($(id))$(id).value=name});}
+function setResponsable(){const n=$('globalResponsable').value.trim();if(!n){toast('Escribe tu nombre','error');return;}STATE.responsable=n;localStorage.setItem('haccp_responsable',n);fillResponsable(n);$('responsableBar').style.display='none';toast('👤 '+n);}
 
 // ═══ NAV ═══
 function switchTab(tabId){
@@ -154,6 +182,9 @@ function switchTab(tabId){
   $(tabId).classList.add('active'); document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
   STATE.currentTab=tabId;
   if(tabId==='tabAdmin') loadAdminData();
+  if(tabId==='tabPCC') refreshPCCList();
+  if(tabId==='tabLimpieza') refreshLimpList();
+  if(tabId==='tabTraza') refreshTrazaList();
 }
 
 // ═══ STATUS BTNS ═══
@@ -178,38 +209,32 @@ async function loadRecords(){
   if(STATE.isDemo){STATE.records=getRecords();return}
   try{
     const{data,error}=await sb.from('control_records').select('*').order('created_at',{ascending:false}).limit(200);
-    if(!error&&data){STATE.records=data;saveRecords(data)}
-    else{STATE.records=getRecords()}// Fallback to local
+    if(!error&&data){STATE.records=data;saveRecords(data)} else STATE.records=getRecords();
   }catch(e){STATE.records=getRecords()}
 }
 
 async function insertRecord(record){
-  // DEMO MODE → always local storage
   if(STATE.isDemo) return addRecord(record);
-  // SUPABASE MODE → try cloud, fallback to local
   try{
-    const row={restaurant_id:STATE.restaurant_id,tipo:record.tipo,datos:record.datos,
-      estado:record.estado,observaciones:record.observaciones||null,
-      accion_correctiva:record.accion_correctiva||null,registrado_por:STATE.user.id};
+    const row={restaurant_id:STATE.restaurant_id,tipo:record.tipo,datos:record.datos,estado:record.estado,observaciones:record.observaciones||null,accion_correctiva:record.accion_correctiva||null,registrado_por:STATE.user.id};
     const{data,error}=await sb.from('control_records').insert([row]).select();
-    if(error){
-      toast('⚠️ Sin conexión — guardado local','error');
-      return addRecord(record);// Fallback to local
-    }
+    if(error){toast('⚠️ Guardado local','error');return addRecord(record);}
     const ins=data[0]; STATE.records.unshift(ins); saveRecords(STATE.records); return ins;
-  }catch(e){toast('⚠️ Sin conexión — guardado local','error'); return addRecord(record);}
+  }catch(e){toast('⚠️ Guardado local','error');return addRecord(record);}
 }
 
-// ═══ PCC RANGE ═══
+// ═══ PCC RANGE (dynamic) ═══
 function checkPCCRange(){
-  const equipo=$('pccEquipo').value, temp=parseFloat($('pccTemp').value);
-  const range=RANGES[equipo]; if(!range){$('pccRangeIndicator').style.display='none';return}
-  $('pccLimInf').value=range[0]; $('pccLimSup').value=range[1];
-  $('pccRange').textContent=`Rango aceptable: ${range[0]}°C – ${range[1]}°C`;
+  const sel=$('pccEquipo'), opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){$('pccRangeIndicator').style.display='none';return}
+  const min=parseFloat(opt.dataset.min), max=parseFloat(opt.dataset.max), temp=parseFloat($('pccTemp').value);
+  if(isNaN(min)||isNaN(max)){$('pccRangeIndicator').style.display='none';return}
+  $('pccLimInf').value=min; $('pccLimSup').value=max;
+  $('pccRange').textContent=`Rango aceptable: ${min}°C – ${max}°C`;
   if(isNaN(temp)){$('pccRangeIndicator').style.display='none';return}
   const ind=$('pccRangeIndicator'); ind.style.display='flex';
-  if(temp>=range[0]&&temp<=range[1]){ind.className='range-indicator range-ok';ind.textContent=`✅ ${temp}°C dentro del rango (${range[0]} a ${range[1]}°C)`;}
-  else{ind.className='range-indicator range-danger';ind.textContent=`❌ ${temp}°C FUERA DE RANGO (${range[0]} a ${range[1]}°C) — Acción correctiva requerida`;}
+  if(temp>=min&&temp<=max){ind.className='range-indicator range-ok';ind.textContent=`✅ ${temp}°C dentro del rango (${min} a ${max}°C)`;}
+  else{ind.className='range-indicator range-danger';ind.textContent=`❌ ${temp}°C FUERA DE RANGO (${min} a ${max}°C)`;}
 }
 
 // ═══ FORM HANDLERS ═══
@@ -217,11 +242,11 @@ async function handlePCC(e){
   e.preventDefault();
   const equipo=$('pccEquipo').value, temp=parseFloat($('pccTemp').value), resp=$('pccResp').value.trim();
   if(!equipo||isNaN(temp)||!resp){toast('Completa equipo, temperatura y responsable','error');return}
-  const range=RANGES[equipo]||[0,5]; const fueraRango=temp<range[0]||temp>range[1];
+  const opt=$('pccEquipo').options[$('pccEquipo').selectedIndex];
+  const limInf=parseFloat(opt.dataset.min)||0, limSup=parseFloat(opt.dataset.max)||5;
+  const fueraRango=temp<limInf||temp>limSup;
   const estado=STATE.currentStatus['formPCC']||'conforme';
-  const r=await insertRecord({tipo:'pcc',
-    datos:{equipo,temperatura:temp,unidad:'°C',lim_inf:range[0],lim_sup:range[1],fuera_rango:fueraRango,responsable:resp},
-    estado, observaciones:$('pccObs').value.trim(), accion_correctiva:$('pccAccion')?.value?.trim()||''});
+  const r=await insertRecord({tipo:'pcc',datos:{equipo,temperatura:temp,unidad:'°C',lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp},estado,observaciones:$('pccObs').value.trim(),accion_correctiva:$('pccAccion')?.value?.trim()||''});
   if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);$('pccRangeIndicator').style.display='none';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 async function handleLimpieza(e){
@@ -230,11 +255,7 @@ async function handleLimpieza(e){
   if(!area||!prod||!resp){toast('Completa área, producto y responsable','error');return}
   const enjuague=$('enjSi').classList.contains('active')?'Sí':'No';
   const estado=STATE.currentStatus['formLimpieza']||STATE.currentStatus['limpStatus']||'conforme';
-  const r=await insertRecord({tipo:'limpieza',
-    datos:{area, tipo_limpieza:$('limpTipo').value, producto_limpieza:prod,
-      producto_desinfeccion:$('limpDesinf').value.trim(), concentracion:$('limpConc').value.trim(),
-      tiempo_contacto:$('limpTiempo').value.trim(), metodo:$('limpMetodo').value, enjuague_final:enjuague,responsable:resp},
-    estado, observaciones:$('limpObs').value.trim()});
+  const r=await insertRecord({tipo:'limpieza',datos:{area,tipo_limpieza:$('limpTipo').value,producto_limpieza:prod,producto_desinfeccion:$('limpDesinf').value.trim(),concentracion:$('limpConc').value.trim(),tiempo_contacto:$('limpTiempo').value.trim(),metodo:$('limpMetodo').value,enjuague_final:enjuague,responsable:resp},estado,observaciones:$('limpObs').value.trim()});
   if(r){toast('✅ Limpieza registrada');$('formLimpieza').reset();fillResponsable(STATE.responsable);refreshLimpList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 async function handleTraza(e){
@@ -242,13 +263,7 @@ async function handleTraza(e){
   const lote=$('trazaLote').value.trim(), prod=$('trazaProd').value.trim(), resp=$('trazaResp').value.trim();
   if(!lote||!prod||!resp){toast('Completa lote, producto y responsable','error');return}
   const estado=STATE.currentStatus['formTraza']||STATE.currentStatus['trazaStatus']||'conforme';
-  const r=await insertRecord({tipo:'trazabilidad',
-    datos:{lote,producto:prod,proveedor:$('trazaProv').value.trim(),registro_invima:$('trazaInvima').value.trim(),
-      cantidad:$('trazaCant').value.trim(),fecha_ingreso:$('trazaIngreso').value,fecha_vencimiento:$('trazaVence').value,
-      temp_recepcion:parseFloat($('trazaTemp').value)||null,temp_vehiculo:parseFloat($('trazaTempVeh').value)||null,
-      guia_transporte:$('trazaGuia').value.trim(),placa_vehiculo:$('trazaPlaca').value.trim(),
-      vehiculo_limpieza:$('trazaVehLimp').value,vehiculo_refrigeracion:$('trazaVehRefri').value,responsable:resp},
-    estado, observaciones:$('trazaObs').value.trim()});
+  const r=await insertRecord({tipo:'trazabilidad',datos:{lote,producto:prod,proveedor:$('trazaProv').value.trim(),registro_invima:$('trazaInvima').value.trim(),cantidad:$('trazaCant').value.trim(),fecha_ingreso:$('trazaIngreso').value,fecha_vencimiento:$('trazaVence').value,temp_recepcion:parseFloat($('trazaTemp').value)||null,temp_vehiculo:parseFloat($('trazaTempVeh').value)||null,guia_transporte:$('trazaGuia').value.trim(),placa_vehiculo:$('trazaPlaca').value.trim(),vehiculo_limpieza:$('trazaVehLimp').value,vehiculo_refrigeracion:$('trazaVehRefri').value,responsable:resp},estado,observaciones:$('trazaObs').value.trim()});
   if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
@@ -258,14 +273,11 @@ function statusLabel(e){return e==='conforme'?'✅':e==='no_conforme'?'❌':'⚠
 function timeAgo(iso){const d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)return'Ahora';if(d<3600)return`${Math.floor(d/60)} min`;if(d<86400)return`${Math.floor(d/3600)}h`;return new Date(iso).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}
 function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦'}[t]||'📋'}
 function recordHTML(r){
-  const d=r.datos||{}; let title='',value='',resp=d.responsable||'';
+  const d=r.datos||{};let title='',value='',resp=d.responsable||'';
   if(r.tipo==='pcc'){title=d.equipo||'PCC';value=`${d.temperatura}°C`;if(d.fuera_rango)value=`⚠️${value}`}
   else if(r.tipo==='limpieza'){title=d.area||'Limpieza';value=d.tipo_limpieza||d.producto_limpieza||''}
   else if(r.tipo==='trazabilidad'){title=d.lote||'Lote';value=d.producto||''}
-  return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div>
-    <div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div>
-    <div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}</div></div>
-    <div class="record-value">${value}</div></div>`;
+  return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}</div></div><div class="record-value">${value}</div></div>`;
 }
 function refreshDashboard(){
   const recs=STATE.records, today=new Date().toISOString().slice(0,10);
@@ -276,7 +288,6 @@ function refreshDashboard(){
   $('kpiConf').textContent=(hoy.length?Math.round((hoy.length-nc.length)/hoy.length*100):100)+'%';
   $('kpiTotal').textContent=mes.length;
   $('recentList').innerHTML=recs.slice(0,10).map(recordHTML).join('')||'<p class="empty-state">Sin registros</p>';
-  // Connection badge
   const badge=$('connBadge');
   if(badge) badge.innerHTML=STATE.isDemo?'<span style="color:var(--warning)">📱 Local</span>':'<span style="color:var(--accent)">☁️ Nube</span>';
 }
@@ -288,47 +299,101 @@ function refreshTrazaList(){const l=STATE.records.filter(r=>r.tipo==='trazabilid
 // ADMIN PANEL
 // ══════════════════════════════
 async function loadAdminData(){
-  if(STATE.isDemo){
-    $('adminContent').innerHTML=`<div class="form-card"><p style="color:var(--warning);font-weight:600">⚠️ Panel de administración no disponible en Modo Demo</p><p class="range-hint" style="margin:8px 0 0">Inicia sesión con una cuenta real para acceder.</p></div>`;
-    return;
-  }
-  $('adminContent').innerHTML='<p class="empty-state">Cargando datos...</p>';
-  try{
-    // Get users
-    const{data:users,error:ue}=await sb.from('users').select('id,nombre,rol,fecha_creacion');
-    // Get record counts
-    const today=new Date().toISOString().slice(0,10);
-    const{count:totalRecs}=await sb.from('control_records').select('*',{count:'exact',head:true});
-    const{count:todayRecs}=await sb.from('control_records').select('*',{count:'exact',head:true}).gte('created_at',today+'T00:00:00');
-    const{count:ncRecs}=await sb.from('control_records').select('*',{count:'exact',head:true}).eq('estado','no_conforme');
-    const{data:restaurant}=await sb.from('restaurants').select('nombre,estado_suscripcion').single();
+  if(STATE.role!=='admin'){$('adminContent').innerHTML='<div class="form-card"><p style="color:var(--danger)">🔒 Solo administradores</p></div>';return}
+  loadAdminCompany(); loadAdminEquipment(); loadAdminAreas(); loadAdminChemicals(); loadAdminUsers();
+}
 
-    let html=`<div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi-card"><span class="kpi-value">${users?.length||0}</span><span class="kpi-label">Usuarios</span></div>
-      <div class="kpi-card"><span class="kpi-value">${totalRecs||0}</span><span class="kpi-label">Total Registros</span></div>
-      <div class="kpi-card"><span class="kpi-value">${todayRecs||0}</span><span class="kpi-label">Registros Hoy</span></div>
-      <div class="kpi-card kpi-danger"><span class="kpi-value">${ncRecs||0}</span><span class="kpi-label">No Conformes</span></div>
-    </div>`;
-    // Restaurant info
-    if(restaurant){
-      html+=`<div class="form-card"><div class="form-section"><span class="form-section-title">🏢 Empresa</span></div>
-        <p style="font-size:18px;font-weight:700;margin:8px 0">${restaurant.nombre}</p>
-        <p style="font-size:12px;color:var(--text3)">Suscripción: <strong style="color:${restaurant.estado_suscripcion==='activo'?'var(--success)':'var(--warning)'}">
-        ${restaurant.estado_suscripcion.toUpperCase()}</strong></p></div>`;
-    }
-    // Users list
-    if(users&&users.length){
-      html+=`<div class="form-card"><div class="form-section"><span class="form-section-title">👥 Usuarios Registrados</span></div>`;
-      users.forEach(u=>{
-        html+=`<div class="record-item" style="margin-top:8px">
-          <div class="record-badge badge-green"></div>
-          <div class="record-info"><div class="record-title">${u.nombre||'Sin nombre'}</div>
-          <div class="record-meta">${u.rol} · ${new Date(u.fecha_creacion).toLocaleDateString('es-CO')}</div></div></div>`;
-      });
-      html+='</div>';
-    }
-    $('adminContent').innerHTML=html;
-  }catch(e){$('adminContent').innerHTML=`<div class="form-card"><p style="color:var(--danger)">Error cargando datos: ${e.message}</p></div>`}
+// --- Company Info ---
+async function loadAdminCompany(){
+  if(STATE.isDemo) return;
+  const r=STATE.restaurant_info||{};
+  $('cfgNombre').value=r.nombre||''; $('cfgNit').value=r.nit||''; $('cfgDir').value=r.direccion||''; $('cfgTel').value=r.telefono||'';
+}
+async function saveCompanyInfo(){
+  if(STATE.isDemo){toast('No disponible en demo','error');return}
+  const data={nombre:$('cfgNombre').value.trim(),nit:$('cfgNit').value.trim(),direccion:$('cfgDir').value.trim(),telefono:$('cfgTel').value.trim()};
+  const{error}=await sb.from('restaurants').update(data).eq('id',STATE.restaurant_id);
+  if(error)toast('Error: '+error.message,'error'); else{toast('✅ Empresa actualizada');STATE.restaurant_info={...STATE.restaurant_info,...data};}
+}
+
+// --- Equipment ---
+async function loadAdminEquipment(){
+  const list=$('equipList'); list.innerHTML='';
+  STATE.config.equipment.forEach((e,i)=>{
+    list.innerHTML+=`<div class="config-item"><span class="config-name">🌡️ ${e.nombre}</span><span class="config-detail">${e.temp_min}°C — ${e.temp_max}°C</span>${STATE.isDemo?'':`<button class="config-del" onclick="deleteEquipment('${e.id}')">✕</button>`}</div>`;
+  });
+}
+async function addEquipment(){
+  const nombre=$('eqNombre').value.trim(), min=parseFloat($('eqMin').value), max=parseFloat($('eqMax').value);
+  if(!nombre||isNaN(min)||isNaN(max)){toast('Completa nombre y temperaturas','error');return}
+  if(STATE.isDemo){STATE.config.equipment.push({nombre,temp_min:min,temp_max:max});populateDropdowns();loadAdminEquipment();toast('✅ Equipo agregado');$('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';return}
+  const{error}=await sb.from('equipment').insert([{restaurant_id:STATE.restaurant_id,nombre,temp_min:min,temp_max:max}]);
+  if(error){toast('Error: '+error.message,'error');return}
+  toast('✅ Equipo agregado'); $('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';
+  await loadConfig(); loadAdminEquipment();
+}
+async function deleteEquipment(id){
+  if(!confirm('¿Eliminar este equipo?'))return;
+  const{error}=await sb.from('equipment').delete().eq('id',id);
+  if(error){toast('Error','error');return}
+  toast('Equipo eliminado'); await loadConfig(); loadAdminEquipment();
+}
+
+// --- Areas ---
+function renderConfigList(items, containerId, deleteFunc){
+  const el=$(containerId); el.innerHTML='';
+  items.forEach((item,i)=>{
+    el.innerHTML+=`<div class="config-item"><span class="config-name">${item}</span><button class="config-del" onclick="${deleteFunc}(${i})">✕</button></div>`;
+  });
+}
+async function updateRestaurantConfig(){
+  if(STATE.isDemo)return;
+  const config={areas_limpieza:STATE.config.areas,productos_limpieza:STATE.config.chemicals_clean,productos_desinfeccion:STATE.config.chemicals_desinf,tipos_limpieza:STATE.config.tipos_limpieza,metodos_limpieza:STATE.config.metodos};
+  await sb.from('restaurants').update({config}).eq('id',STATE.restaurant_id);
+  populateDropdowns();
+}
+function loadAdminAreas(){renderConfigList(STATE.config.areas,'areaList','deleteArea');}
+async function addArea(){
+  const v=$('newArea').value.trim(); if(!v){toast('Escribe un nombre','error');return}
+  STATE.config.areas.push(v); await updateRestaurantConfig(); loadAdminAreas(); $('newArea').value=''; toast('✅ Área agregada');
+}
+async function deleteArea(i){STATE.config.areas.splice(i,1);await updateRestaurantConfig();loadAdminAreas();toast('Área eliminada');}
+
+// --- Chemicals ---
+function loadAdminChemicals(){
+  renderConfigList(STATE.config.chemicals_clean,'chemCleanList','deleteChemClean');
+  renderConfigList(STATE.config.chemicals_desinf,'chemDesinfList','deleteChemDesinf');
+}
+async function addChemClean(){const v=$('newChemClean').value.trim();if(!v)return;STATE.config.chemicals_clean.push(v);await updateRestaurantConfig();loadAdminChemicals();$('newChemClean').value='';toast('✅ Producto agregado');}
+async function deleteChemClean(i){STATE.config.chemicals_clean.splice(i,1);await updateRestaurantConfig();loadAdminChemicals();toast('Eliminado');}
+async function addChemDesinf(){const v=$('newChemDesinf').value.trim();if(!v)return;STATE.config.chemicals_desinf.push(v);await updateRestaurantConfig();loadAdminChemicals();$('newChemDesinf').value='';toast('✅ Producto agregado');}
+async function deleteChemDesinf(i){STATE.config.chemicals_desinf.splice(i,1);await updateRestaurantConfig();loadAdminChemicals();toast('Eliminado');}
+
+// --- Users ---
+async function loadAdminUsers(){
+  const list=$('userList');
+  if(STATE.isDemo){list.innerHTML='<p class="empty-state">No disponible en demo</p>';return}
+  list.innerHTML='<p class="empty-state">Cargando...</p>';
+  try{
+    const{data:users}=await sb.from('users').select('id,nombre,rol,fecha_creacion');
+    if(!users||!users.length){list.innerHTML='<p class="empty-state">Sin usuarios</p>';return}
+    list.innerHTML='';
+    users.forEach(u=>{
+      const isMe=u.id===STATE.user.id;
+      list.innerHTML+=`<div class="config-item" style="flex-wrap:wrap;gap:8px">
+        <div style="flex:1;min-width:120px"><span class="config-name">${u.nombre||'Sin nombre'}${isMe?' (Tú)':''}</span>
+        <span class="config-detail">${new Date(u.fecha_creacion).toLocaleDateString('es-CO')}</span></div>
+        <select class="input" style="width:auto;min-width:120px;margin:0;padding:8px" onchange="changeUserRole('${u.id}',this.value)" ${isMe?'disabled':''}>
+          <option value="admin" ${u.rol==='admin'?'selected':''}>👑 Admin</option>
+          <option value="supervisor" ${u.rol==='supervisor'?'selected':''}>📋 Supervisor</option>
+          <option value="empleado" ${u.rol==='empleado'?'selected':''}>👤 Empleado</option>
+        </select></div>`;
+    });
+  }catch(e){list.innerHTML=`<p class="empty-state">Error: ${e.message}</p>`}
+}
+async function changeUserRole(userId, newRole){
+  const{error}=await sb.from('users').update({rol:newRole}).eq('id',userId);
+  if(error)toast('Error: '+error.message,'error'); else toast(`✅ Rol cambiado a ${newRole}`);
 }
 
 // ═══ PDF ═══
@@ -353,25 +418,21 @@ function handleGenPDF(){
   doc.setTextColor(255);doc.setFontSize(18);doc.setFont('helvetica','bold');doc.text('GD FORGE — HACCP-Lite',14,16);
   doc.setFontSize(9);doc.setFont('helvetica','normal');
   doc.text('Reporte de Control de Inocuidad Alimentaria',14,23);
-  doc.text(`Generado: ${new Date().toLocaleString('es-CO')} | Giovanni Duarte MVZ — Consultor en Calidad e Inocuidad`,14,29);
-  let y=42; const tipo=$('repTipo').value;
-  doc.setTextColor(40);doc.setFontSize(10);
+  doc.text(`Generado: ${new Date().toLocaleString('es-CO')} | Giovanni Duarte MVZ`,14,29);
+  let y=42;const tipo=$('repTipo').value;doc.setTextColor(40);doc.setFontSize(10);
   if(tipo)doc.text(`Tipo: ${tipo.toUpperCase()}`,14,y);
   const desde=$('repDesde').value,hasta=$('repHasta').value;
-  if(desde||hasta)doc.text(`Período: ${desde||'...'} — ${hasta||'...'}`,tipo?80:14,y);
-  y+=8;
+  if(desde||hasta)doc.text(`Período: ${desde||'...'} — ${hasta||'...'}`,tipo?80:14,y); y+=8;
   const conf=recs.filter(r=>r.estado==='conforme').length,nc=recs.filter(r=>r.estado==='no_conforme').length;
-  doc.setFontSize(9);
-  doc.text(`Total: ${recs.length} | Conformes: ${conf} | No conformes: ${nc} | Conformidad: ${recs.length?Math.round(conf/recs.length*100):100}%`,14,y);
+  doc.setFontSize(9);doc.text(`Total: ${recs.length} | Conformes: ${conf} | No conformes: ${nc} | Conformidad: ${recs.length?Math.round(conf/recs.length*100):100}%`,14,y);
   const rows=recs.map(r=>{const d=r.datos||{};let det='';
     if(r.tipo==='pcc')det=`${d.equipo}: ${d.temperatura}°C (${d.lim_inf}–${d.lim_sup})`;
-    else if(r.tipo==='limpieza')det=`${d.area} | ${d.producto_limpieza||'-'} / ${d.producto_desinfeccion||'-'} ${d.concentracion||''}`;
-    else if(r.tipo==='trazabilidad')det=`Lote: ${d.lote} | ${d.producto} | Guía: ${d.guia_transporte||'-'}`;
+    else if(r.tipo==='limpieza')det=`${d.area} | ${d.producto_limpieza||'-'} / ${d.producto_desinfeccion||'-'}`;
+    else if(r.tipo==='trazabilidad')det=`Lote: ${d.lote} | ${d.producto}`;
     return[new Date(r.created_at).toLocaleDateString('es-CO'),r.tipo.toUpperCase(),det,r.estado,d.responsable||'',r.observaciones||''];
   });
-  doc.autoTable({startY:y+4,head:[['Fecha','Tipo','Detalle','Estado','Responsable','Obs.']],body:rows,
-    styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[45,138,78],textColor:255,fontStyle:'bold'},
-    alternateRowStyles:{fillColor:[245,245,245]},
+  doc.autoTable({startY:y+4,head:[['Fecha','Tipo','Detalle','Estado','Resp.','Obs.']],body:rows,
+    styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[45,138,78],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[245,245,245]},
     didParseCell:function(d){if(d.column.index===3&&d.section==='body'){if(d.cell.raw==='no_conforme')d.cell.styles.textColor=[239,68,68];else if(d.cell.raw==='conforme')d.cell.styles.textColor=[45,138,78];}}
   });
   const pc=doc.internal.getNumberOfPages();
@@ -385,7 +446,6 @@ function handleGenPDF(){
 // INIT
 // ══════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
-  // Auth
   $('loginForm').addEventListener('submit',handleLogin);
   $('registerForm').addEventListener('submit',handleRegister);
   $('forgotForm').addEventListener('submit',handleForgotPassword);
@@ -396,23 +456,24 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('showForgot').addEventListener('click',e=>{e.preventDefault();showForgotForm()});
   $('btnSetResp').addEventListener('click',setResponsable);
   $('globalResponsable').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();setResponsable()}});
-  // Nav
-  document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>{switchTab(b.dataset.tab);
-    if(b.dataset.tab==='tabPCC')refreshPCCList();if(b.dataset.tab==='tabLimpieza')refreshLimpList();if(b.dataset.tab==='tabTraza')refreshTrazaList();}));
-  // Forms
+  document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
   $('formPCC').addEventListener('submit',handlePCC);
   $('formLimpieza').addEventListener('submit',handleLimpieza);
   $('formTraza').addEventListener('submit',handleTraza);
   $('btnGenPDF').addEventListener('click',handleGenPDF);
   $('btnPreview').addEventListener('click',handlePreview);
   initStatusButtons();
-  // Defaults
   const today=new Date().toISOString().slice(0,10);
   $('repDesde').value=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
   $('repHasta').value=today; if($('trazaIngreso'))$('trazaIngreso').value=today;
   $('pccEquipo').addEventListener('change',checkPCCRange);
   $('pccTemp').addEventListener('input',checkPCCRange);
-  // Session
+  // Admin buttons
+  $('btnSaveCompany')?.addEventListener('click',saveCompanyInfo);
+  $('btnAddEquip')?.addEventListener('click',addEquipment);
+  $('btnAddArea')?.addEventListener('click',addArea);
+  $('btnAddChemClean')?.addEventListener('click',addChemClean);
+  $('btnAddChemDesinf')?.addEventListener('click',addChemDesinf);
   checkSession();
 });
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});

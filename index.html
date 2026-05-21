@@ -19,30 +19,23 @@
     <div class="login-logo"><img src="logo.png" alt="GD FORGE"></div>
     <h1 class="login-title">HACCP-Lite</h1>
     <p class="login-subtitle">Control de Inocuidad Alimentaria · GD FORGE</p>
-
-    <!-- Login Form -->
     <form id="loginForm">
       <input type="email" id="loginEmail" class="input" placeholder="Email" required>
       <input type="password" id="loginPass" class="input" placeholder="Contraseña" required>
       <button type="submit" class="btn btn-primary btn-block" id="btnLogin">Iniciar Sesión</button>
     </form>
     <p class="login-toggle" id="loginToggle">¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a> · <a href="#" id="showForgot">¿Olvidaste tu contraseña?</a></p>
-
-    <!-- Register Form -->
     <form id="registerForm" style="display:none">
       <input type="email" id="regEmail" class="input" placeholder="Email" required>
       <input type="password" id="regPass" class="input" placeholder="Contraseña (mín. 6)" required minlength="6">
       <input type="text" id="regName" class="input" placeholder="Nombre completo" required>
       <button type="submit" class="btn btn-primary btn-block" id="btnRegister">Crear Cuenta</button>
     </form>
-
-    <!-- Forgot Password Form -->
     <form id="forgotForm" style="display:none">
       <p style="color:var(--text2);font-size:13px;margin-bottom:12px">Escribe tu email y te enviaremos un link para cambiar tu contraseña.</p>
       <input type="email" id="forgotEmail" class="input" placeholder="Tu email" required>
       <button type="submit" class="btn btn-primary btn-block" id="btnForgot">Enviar Link</button>
     </form>
-
     <p class="login-toggle" id="showLoginLink" style="display:none"><a href="#" id="showLogin">← Volver al login</a></p>
     <button class="btn btn-outline btn-block" id="btnDemo" style="margin-top:10px">🚀 Modo Demo (sin cuenta)</button>
     <p style="text-align:center;font-size:9px;color:var(--text3);margin-top:16px">Desarrollado por Giovanni Duarte MVZ<br>Consultor en Calidad e Inocuidad</p>
@@ -64,7 +57,6 @@
   </header>
 
   <main class="main-content">
-    <!-- Responsable prompt -->
     <div id="responsableBar" class="form-card" style="display:none;margin-bottom:12px">
       <label class="label">👤 Responsable del Turno</label>
       <div class="input-row">
@@ -96,7 +88,7 @@
       <form id="formPCC" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Punto de Control</span></div>
         <label class="label">Equipo / Punto de Control</label>
-        <select id="pccEquipo" class="input"><option value="">Seleccionar...</option><option>Nevera Principal</option><option>Congelador 1</option><option>Congelador 2</option><option>Cuarto Frío</option><option>Zona de Despacho</option><option>Recepción MP</option><option>Cocción</option><option>Enfriamiento</option></select>
+        <select id="pccEquipo" class="input"><option value="">Seleccionar...</option></select>
         <div class="form-section"><span class="form-section-title">🌡️ Medición</span></div>
         <label class="label">Temperatura °C</label>
         <input type="number" id="pccTemp" class="input input-big" placeholder="0.0" step="0.1" required>
@@ -130,21 +122,19 @@
       <form id="formLimpieza" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Ubicación</span></div>
         <label class="label">Área</label>
-        <select id="limpArea" class="input"><option value="">Seleccionar...</option><option>Zona de Corte</option><option>Zona de Empaque</option><option>Cuarto Frío</option><option>Área de Despacho</option><option>Baños y Vestidores</option><option>Equipos y Utensilios</option><option>Pisos y Paredes</option><option>Zona de Recepción</option></select>
+        <select id="limpArea" class="input"><option value="">Seleccionar...</option></select>
         <label class="label">Tipo de Limpieza</label>
-        <select id="limpTipo" class="input"><option value="">Seleccionar...</option><option>Pre-operativa</option><option>Operativa</option><option>Post-operativa</option></select>
+        <select id="limpTipo" class="input"><option value="">Seleccionar...</option></select>
         <div class="form-section"><span class="form-section-title">🧪 Productos Químicos</span></div>
         <label class="label">Producto de Limpieza</label>
         <input type="text" id="limpProducto" class="input" placeholder="Ej: Jabón desengrasante" required list="listaLimpieza">
-        <datalist id="listaLimpieza"><option value="Jabón desengrasante"><option value="Detergente alcalino"><option value="Detergente neutro"><option value="Desengrasante industrial"></datalist>
         <label class="label">Producto de Desinfección</label>
         <input type="text" id="limpDesinf" class="input" placeholder="Ej: Hipoclorito de sodio" list="listaDesinf">
-        <datalist id="listaDesinf"><option value="Hipoclorito de sodio"><option value="Amonio cuaternario"><option value="Ácido peracético"><option value="Dióxido de cloro"></datalist>
         <div class="input-row-3">
           <div class="input-col"><label class="label">Concentración</label><input type="text" id="limpConc" class="input" placeholder="200 ppm"></div>
           <div class="input-col"><label class="label">Tiempo Contacto</label><input type="text" id="limpTiempo" class="input" placeholder="10 min"></div>
           <div class="input-col"><label class="label">Método</label>
-            <select id="limpMetodo" class="input"><option value="">—</option><option>Aspersión</option><option>Inmersión</option><option>Frotado</option><option>Nebulización</option></select>
+            <select id="limpMetodo" class="input"><option value="">—</option></select>
           </div>
         </div>
         <label class="label">Enjuague Final</label>
@@ -241,10 +231,76 @@
       </div>
     </section>
 
-    <!-- ADMIN -->
+    <!-- ADMIN / CONFIG -->
     <section id="tabAdmin" class="tab-panel">
-      <h2 class="section-title">⚙️ Administración</h2>
-      <div id="adminContent"><p class="empty-state">Cargando...</p></div>
+      <h2 class="section-title">⚙️ Configuración</h2>
+      <div id="adminContent">
+        <!-- Empresa -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">🏢 Datos de la Empresa</span></div>
+          <label class="label">Nombre</label>
+          <input id="cfgNombre" class="input" placeholder="Nombre de la empresa">
+          <div class="input-row">
+            <div class="input-col"><label class="label">NIT</label><input id="cfgNit" class="input" placeholder="900.000.000-0"></div>
+            <div class="input-col"><label class="label">Teléfono</label><input id="cfgTel" class="input" placeholder="300 000 0000"></div>
+          </div>
+          <label class="label">Dirección</label>
+          <input id="cfgDir" class="input" placeholder="Dirección de la planta">
+          <button class="btn btn-primary btn-block" id="btnSaveCompany">💾 Guardar Datos Empresa</button>
+        </div>
+
+        <!-- Equipos PCC -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">🌡️ Equipos PCC</span></div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Estos equipos aparecen en el formulario PCC con sus rangos de temperatura.</p>
+          <div id="equipList"></div>
+          <div class="form-section" style="margin-top:12px"><span class="form-section-title">➕ Agregar Equipo</span></div>
+          <input id="eqNombre" class="input" placeholder="Nombre del equipo (ej: Horno Industrial)">
+          <div class="input-row">
+            <div class="input-col"><label class="label">Temp. Mín °C</label><input type="number" id="eqMin" class="input" step="0.1" placeholder="0"></div>
+            <div class="input-col"><label class="label">Temp. Máx °C</label><input type="number" id="eqMax" class="input" step="0.1" placeholder="5"></div>
+          </div>
+          <button class="btn btn-primary btn-block" id="btnAddEquip">➕ Agregar Equipo</button>
+        </div>
+
+        <!-- Áreas de Limpieza -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">📍 Áreas de Limpieza</span></div>
+          <div id="areaList"></div>
+          <div class="input-row" style="margin-top:8px">
+            <input id="newArea" class="input" placeholder="Nueva área..." style="margin:0">
+            <button class="btn btn-primary" id="btnAddArea" style="height:50px;min-width:80px">➕</button>
+          </div>
+        </div>
+
+        <!-- Químicos Limpieza -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">🧪 Productos de Limpieza</span></div>
+          <div id="chemCleanList"></div>
+          <div class="input-row" style="margin-top:8px">
+            <input id="newChemClean" class="input" placeholder="Nuevo producto..." style="margin:0">
+            <button class="btn btn-primary" id="btnAddChemClean" style="height:50px;min-width:80px">➕</button>
+          </div>
+        </div>
+
+        <!-- Químicos Desinfección -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">🧪 Productos de Desinfección</span></div>
+          <div id="chemDesinfList"></div>
+          <div class="input-row" style="margin-top:8px">
+            <input id="newChemDesinf" class="input" placeholder="Nuevo producto..." style="margin:0">
+            <button class="btn btn-primary" id="btnAddChemDesinf" style="height:50px;min-width:80px">➕</button>
+          </div>
+        </div>
+
+        <!-- Usuarios -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">👥 Gestión de Usuarios</span></div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Los usuarios se registran desde la app. Aquí puedes cambiar sus permisos.<br>
+          <strong>Admin</strong> = puede configurar todo · <strong>Supervisor</strong> = solo ve registros · <strong>Empleado</strong> = solo registra</p>
+          <div id="userList"></div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -254,7 +310,7 @@
     <button class="nav-btn" data-tab="tabLimpieza"><span class="nav-icon">🧹</span><span class="nav-label">Limpieza</span></button>
     <button class="nav-btn" data-tab="tabTraza"><span class="nav-icon">📦</span><span class="nav-label">Trazab.</span></button>
     <button class="nav-btn" data-tab="tabReportes"><span class="nav-icon">📄</span><span class="nav-label">Reportes</span></button>
-    <button class="nav-btn" data-tab="tabAdmin" id="navAdmin" style="display:none"><span class="nav-icon">⚙️</span><span class="nav-label">Admin</span></button>
+    <button class="nav-btn" data-tab="tabAdmin" id="navAdmin" style="display:none"><span class="nav-icon">⚙️</span><span class="nav-label">Config</span></button>
   </nav>
   <div id="appToast" class="toast"></div>
 </div>
