@@ -1,11 +1,12 @@
-/* ===== HACCP-Lite v3.1 — GD FORGE — PCC Flexibles + Rechazo MP ===== */
+/* ===== HACCP-Lite v3.2 — GD FORGE — Fotos + Checklists + Etiquetas ===== */
 
 const SUPABASE_URL = 'https://shqfwclzkpgdtgveqmdk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNocWZ3Y2x6a3BnZHRndmVxbWRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDA1ODYsImV4cCI6MjA4NzcxNjU4Nn0.EBi8Qxk8vA_xEYV5UX6LvhP_Hoj7Gsng62hTWs1tyLQ';
 const HAS_SUPABASE = !SUPABASE_URL.includes('TU_');
 
 const STATE = { user:null, restaurant_id:null, records:[], currentTab:'tabDashboard', currentStatus:{}, responsable:'', isDemo:false, role:'empleado',
-  config:{ equipment:[], areas:[], chemicals_clean:[], chemicals_desinf:[], tipos_limpieza:[], metodos:[] }
+  config:{ equipment:[], areas:[], chemicals_clean:[], chemicals_desinf:[], tipos_limpieza:[], metodos:[], checklist_apertura:[], checklist_cierre:[] },
+  photos:{ pcc:null, limp:null, traza:null }, checklistType:'apertura', checklistState:{}
 };
 const DEFAULTS = {
   equipment:[
@@ -24,7 +25,9 @@ const DEFAULTS = {
   chemicals_clean:['Jabón desengrasante','Detergente alcalino','Detergente neutro','Desengrasante industrial'],
   chemicals_desinf:['Hipoclorito de sodio','Amonio cuaternario','Ácido peracético','Dióxido de cloro'],
   tipos_limpieza:['Pre-operativa','Operativa','Post-operativa'],
-  metodos:['Aspersión','Inmersión','Frotado','Nebulización']
+  metodos:['Aspersión','Inmersión','Frotado','Nebulización'],
+  checklist_apertura:['Verificar temperatura de neveras y congeladores','Encender equipos de cocción','Verificar limpieza general de pisos y superficies','Verificar uniformes y EPP del personal','Verificar lavamanos funcional con jabón y toallas','Revisar fechas de vencimiento en almacén','Verificar stock de productos de limpieza','Verificar funcionamiento de trampas de grasa'],
+  checklist_cierre:['Limpiar y desinfectar todas las superficies de trabajo','Sacar basura y lavar canecas','Cerrar llaves de gas','Apagar equipos de cocción','Verificar que neveras y congeladores estén cerrados','Registrar temperaturas finales de equipos','Barrer y trapear pisos','Verificar puertas y ventanas cerradas']
 };
 
 let sb = null;
@@ -57,7 +60,9 @@ async function loadConfig(){
       chemicals_clean:c.productos_limpieza||DEFAULTS.chemicals_clean,
       chemicals_desinf:c.productos_desinfeccion||DEFAULTS.chemicals_desinf,
       tipos_limpieza:c.tipos_limpieza||DEFAULTS.tipos_limpieza,
-      metodos:c.metodos_limpieza||DEFAULTS.metodos
+      metodos:c.metodos_limpieza||DEFAULTS.metodos,
+      checklist_apertura:c.checklist_apertura||DEFAULTS.checklist_apertura,
+      checklist_cierre:c.checklist_cierre||DEFAULTS.checklist_cierre
     };
     STATE.restaurant_info=rest||{};
   }catch(e){ STATE.config={...DEFAULTS}; }
@@ -298,8 +303,9 @@ async function handlePCC(e){
     fueraRango=valor<limInf||valor>limSup;
   }
   const estado=STATE.currentStatus['formPCC']||'conforme';
-  const r=await insertRecord({tipo:'pcc',datos:{equipo,tipo_medicion:tipo_med,valor,unidad,lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp},estado,observaciones:$('pccObs').value.trim(),accion_correctiva:$('pccAccion')?.value?.trim()||''});
-  if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);$('pccRangeIndicator').style.display='none';$('pccMedicionBool').style.display='none';$('pccMedicionNum').style.display='block';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  const foto=STATE.photos.pcc;
+  const r=await insertRecord({tipo:'pcc',datos:{equipo,tipo_medicion:tipo_med,valor,unidad,lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp,foto},estado,observaciones:$('pccObs').value.trim(),accion_correctiva:$('pccAccion')?.value?.trim()||''});
+  if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);clearPhoto('pcc');$('pccRangeIndicator').style.display='none';$('pccMedicionBool').style.display='none';$('pccMedicionNum').style.display='block';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
 async function handleLimpieza(e){
@@ -308,8 +314,9 @@ async function handleLimpieza(e){
   if(!area||!prod||!resp){toast('Completa área, producto y responsable','error');return}
   const enjuague=$('enjSi').classList.contains('active')?'Sí':'No';
   const estado=STATE.currentStatus['formLimpieza']||STATE.currentStatus['limpStatus']||'conforme';
-  const r=await insertRecord({tipo:'limpieza',datos:{area,tipo_limpieza:$('limpTipo').value,producto_limpieza:prod,producto_desinfeccion:$('limpDesinf').value.trim(),concentracion:$('limpConc').value.trim(),tiempo_contacto:$('limpTiempo').value.trim(),metodo:$('limpMetodo').value,enjuague_final:enjuague,responsable:resp},estado,observaciones:$('limpObs').value.trim()});
-  if(r){toast('✅ Limpieza registrada');$('formLimpieza').reset();fillResponsable(STATE.responsable);refreshLimpList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  const foto=STATE.photos.limp;
+  const r=await insertRecord({tipo:'limpieza',datos:{area,tipo_limpieza:$('limpTipo').value,producto_limpieza:prod,producto_desinfeccion:$('limpDesinf').value.trim(),concentracion:$('limpConc').value.trim(),tiempo_contacto:$('limpTiempo').value.trim(),metodo:$('limpMetodo').value,enjuague_final:enjuague,responsable:resp,foto},estado,observaciones:$('limpObs').value.trim()});
+  if(r){toast('✅ Limpieza registrada');$('formLimpieza').reset();fillResponsable(STATE.responsable);clearPhoto('limp');refreshLimpList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
 async function handleTraza(e){
@@ -328,8 +335,9 @@ async function handleTraza(e){
     datos.motivo_rechazo=$('trazaMotivoRechazo').value.trim();
     datos.destino_rechazo=$('trazaDestinoRechazo').value;
   }
+  datos.foto=STATE.photos.traza;
   const r=await insertRecord({tipo:'trazabilidad',datos,estado,observaciones:$('trazaObs').value.trim()});
-  if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);$('trazaRechazoFields').style.display='none';refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);clearPhoto('traza');$('trazaRechazoFields').style.display='none';refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
 // ═══ TRAZA RECHAZO TOGGLE ═══
@@ -338,11 +346,92 @@ function initRechazoToggle(){
   $('trazaRechNo')?.addEventListener('click',()=>{$('trazaRechNo').classList.add('active');$('trazaRechSi').classList.remove('active');$('trazaRechazoFields').style.display='none';});
 }
 
+// ═══ PHOTO EVIDENCE ═══
+async function compressPhoto(file,maxW=800,q=0.5){
+  return new Promise(res=>{
+    const r=new FileReader(); r.onload=e=>{
+      const img=new Image(); img.onload=()=>{
+        const c=document.createElement('canvas'); let w=img.width,h=img.height;
+        if(w>maxW){h=h*maxW/w;w=maxW;} c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        res(c.toDataURL('image/jpeg',q));
+      }; img.src=e.target.result;
+    }; r.readAsDataURL(file);
+  });
+}
+async function onPhotoSelect(key,inputId,previewId){
+  const file=$(inputId).files[0]; if(!file)return;
+  const b64=await compressPhoto(file);
+  STATE.photos[key]=b64;
+  $(previewId).innerHTML=`<div class="photo-wrap"><img src="${b64}" class="photo-thumb"><button class="photo-remove" onclick="clearPhoto('${key}')">✕</button></div>`;
+}
+function clearPhoto(key){
+  STATE.photos[key]=null;
+  const prev=$({pcc:'pccFotoPreview',limp:'limpFotoPreview',traza:'trazaFotoPreview'}[key]);
+  if(prev)prev.innerHTML=''; const inp=$({pcc:'pccFoto',limp:'limpFoto',traza:'trazaFoto'}[key]); if(inp)inp.value='';
+}
+
+// ═══ CHECKLISTS ═══
+function showChecklist(type){
+  STATE.checklistType=type; STATE.checklistState={};
+  document.querySelectorAll('.check-toggle .btn').forEach(b=>b.classList.remove('active'));
+  $(type==='apertura'?'btnCheckApertura':'btnCheckCierre').classList.add('active');
+  const items=STATE.config['checklist_'+type]||[];
+  const list=$('checklistItems');
+  list.innerHTML=items.map((item,i)=>`<div class="check-item" onclick="toggleCheckItem(${i})"><div class="check-box" id="chk${i}"></div><span class="check-text">${item}</span></div>`).join('');
+  updateCheckProgress();
+  $('checkProgress').style.display='block';
+}
+function toggleCheckItem(i){
+  STATE.checklistState[i]=!STATE.checklistState[i];
+  const el=document.querySelectorAll('.check-item')[i];
+  if(el){el.classList.toggle('checked',STATE.checklistState[i]); el.querySelector('.check-box').textContent=STATE.checklistState[i]?'✓':'';}
+  updateCheckProgress();
+}
+function updateCheckProgress(){
+  const items=STATE.config['checklist_'+STATE.checklistType]||[];
+  const done=Object.values(STATE.checklistState).filter(Boolean).length;
+  const pct=items.length?Math.round(done/items.length*100):0;
+  $('checkProgressBar').style.width=pct+'%';
+  $('checkProgressText').textContent=`${done}/${items.length} completados (${pct}%)`;
+}
+async function saveChecklist(){
+  const items=STATE.config['checklist_'+STATE.checklistType]||[];
+  const done=Object.values(STATE.checklistState).filter(Boolean).length;
+  if(done===0){toast('Marca al menos un item','error');return;}
+  const checkedItems=items.filter((_,i)=>STATE.checklistState[i]);
+  const uncheckedItems=items.filter((_,i)=>!STATE.checklistState[i]);
+  const r=await insertRecord({tipo:'checklist',datos:{tipo_checklist:STATE.checklistType,items_completados:checkedItems,items_pendientes:uncheckedItems,total:items.length,completados:done,porcentaje:Math.round(done/items.length*100),responsable:STATE.responsable},estado:done===items.length?'conforme':'no_conforme',observaciones:$('checkObs')?.value?.trim()||''});
+  if(r){toast(`✅ Checklist ${STATE.checklistType} guardado (${done}/${items.length})`);STATE.checklistState={};showChecklist(STATE.checklistType);refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+}
+
+// ═══ ETIQUETAS ═══
+function generateLabel(){
+  const prod=$('etProd').value.trim(),prep=$('etPrep').value,vence=$('etVence').value,resp=$('etResp').value.trim()||STATE.responsable;
+  if(!prod){toast('Escribe el producto','error');return;}
+  const preview=$('labelPreview');
+  preview.innerHTML=`<h3>🍽️ ${prod}</h3><p class="label-big">Prep: ${prep?new Date(prep+'T12:00').toLocaleDateString('es-CO'):'---'}</p><p class="label-big" style="color:var(--danger)">Vence: ${vence?new Date(vence+'T12:00').toLocaleDateString('es-CO'):'---'}</p><p>👤 ${resp}</p><p style="font-size:9px;margin-top:6px">${new Date().toLocaleString('es-CO')}</p>`;
+  preview.style.display='block';
+}
+function printLabel(){
+  const prod=$('etProd').value.trim(),prep=$('etPrep').value,vence=$('etVence').value,resp=$('etResp').value.trim()||STATE.responsable;
+  if(!prod){toast('Escribe el producto','error');return;}
+  const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:[80,50]});
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text(prod,40,8,{align:'center'});
+  doc.setDrawColor(150);doc.line(5,10,75,10);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text(`Prep: ${prep||'---'}`,5,16);doc.text(`Vence: ${vence||'---'}`,5,22);
+  doc.text(`Resp: ${resp}`,5,28);
+  doc.setFontSize(7);doc.text(new Date().toLocaleString('es-CO'),5,34);
+  doc.text('GD FORGE — HACCP-Lite',40,46,{align:'center'});
+  doc.save(`Etiqueta_${prod.replace(/\s/g,'_')}.pdf`);toast('✅ Etiqueta descargada');
+}
+
 // ═══ RENDER ═══
 function badgeClass(e){return e==='conforme'?'badge-green':e==='no_conforme'?'badge-red':'badge-yellow'}
 function statusLabel(e){return e==='conforme'?'✅':e==='no_conforme'?'❌':'⚠️'}
 function timeAgo(iso){const d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)return'Ahora';if(d<3600)return`${Math.floor(d/60)} min`;if(d<86400)return`${Math.floor(d/3600)}h`;return new Date(iso).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}
-function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦'}[t]||'📋'}
+function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦',checklist:'✅',etiqueta:'🏷️'}[t]||'📋'}
 function recordHTML(r){
   const d=r.datos||{};let title='',value='',resp=d.responsable||'';
   if(r.tipo==='pcc'){
@@ -353,6 +442,7 @@ function recordHTML(r){
   }
   else if(r.tipo==='limpieza'){title=d.area||'Limpieza';value=d.tipo_limpieza||d.producto_limpieza||''}
   else if(r.tipo==='trazabilidad'){title=d.lote||'Lote';value=d.producto||'';if(d.rechazado)value='❌ RECHAZADO — '+value}
+  else if(r.tipo==='checklist'){title=(d.tipo_checklist==='apertura'?'☀️ Apertura':'🌙 Cierre');value=`${d.completados}/${d.total}`}
   return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}</div></div><div class="record-value">${value}</div></div>`;
 }
 function refreshDashboard(){
@@ -376,7 +466,7 @@ function refreshTrazaList(){const l=STATE.records.filter(r=>r.tipo==='trazabilid
 // ══════════════════════════════
 async function loadAdminData(){
   if(STATE.role!=='admin'){$('adminContent').innerHTML='<div class="form-card"><p style="color:var(--danger)">🔒 Solo administradores</p></div>';return}
-  loadAdminCompany(); loadAdminEquipment(); loadAdminAreas(); loadAdminChemicals(); loadAdminUsers();
+  loadAdminCompany(); loadAdminEquipment(); loadAdminAreas(); loadAdminChemicals(); loadAdminChecklists(); loadAdminUsers();
 }
 
 async function loadAdminCompany(){
@@ -433,7 +523,7 @@ function renderConfigList(items, containerId, deleteFunc){
 }
 async function updateRestaurantConfig(){
   if(STATE.isDemo)return;
-  const config={areas_limpieza:STATE.config.areas,productos_limpieza:STATE.config.chemicals_clean,productos_desinfeccion:STATE.config.chemicals_desinf,tipos_limpieza:STATE.config.tipos_limpieza,metodos_limpieza:STATE.config.metodos};
+  const config={areas_limpieza:STATE.config.areas,productos_limpieza:STATE.config.chemicals_clean,productos_desinfeccion:STATE.config.chemicals_desinf,tipos_limpieza:STATE.config.tipos_limpieza,metodos_limpieza:STATE.config.metodos,checklist_apertura:STATE.config.checklist_apertura,checklist_cierre:STATE.config.checklist_cierre};
   await sb.from('restaurants').update({config}).eq('id',STATE.restaurant_id);
   populateDropdowns();
 }
@@ -450,6 +540,16 @@ async function addChemClean(){const v=$('newChemClean').value.trim();if(!v)retur
 async function deleteChemClean(i){STATE.config.chemicals_clean.splice(i,1);await updateRestaurantConfig();loadAdminChemicals();toast('Eliminado');}
 async function addChemDesinf(){const v=$('newChemDesinf').value.trim();if(!v)return;STATE.config.chemicals_desinf.push(v);await updateRestaurantConfig();loadAdminChemicals();$('newChemDesinf').value='';toast('✅ Producto agregado');}
 async function deleteChemDesinf(i){STATE.config.chemicals_desinf.splice(i,1);await updateRestaurantConfig();loadAdminChemicals();toast('Eliminado');}
+
+// --- Checklists Admin ---
+function loadAdminChecklists(){
+  renderConfigList(STATE.config.checklist_apertura,'checkAperturaList','deleteCheckApertura');
+  renderConfigList(STATE.config.checklist_cierre,'checkCierreList','deleteCheckCierre');
+}
+async function addCheckApertura(){const v=$('newCheckApertura').value.trim();if(!v)return;STATE.config.checklist_apertura.push(v);await updateRestaurantConfig();loadAdminChecklists();$('newCheckApertura').value='';toast('✅ Item agregado');}
+async function deleteCheckApertura(i){STATE.config.checklist_apertura.splice(i,1);await updateRestaurantConfig();loadAdminChecklists();toast('Eliminado');}
+async function addCheckCierre(){const v=$('newCheckCierre').value.trim();if(!v)return;STATE.config.checklist_cierre.push(v);await updateRestaurantConfig();loadAdminChecklists();$('newCheckCierre').value='';toast('✅ Item agregado');}
+async function deleteCheckCierre(i){STATE.config.checklist_cierre.splice(i,1);await updateRestaurantConfig();loadAdminChecklists();toast('Eliminado');}
 
 // --- Users ---
 async function loadAdminUsers(){
@@ -565,6 +665,22 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('btnAddChemClean')?.addEventListener('click',addChemClean);
   $('btnAddChemDesinf')?.addEventListener('click',addChemDesinf);
   $('eqTipoMed')?.addEventListener('change',onEqTipoChange);
+  // Photo listeners
+  $('pccFoto')?.addEventListener('change',()=>onPhotoSelect('pcc','pccFoto','pccFotoPreview'));
+  $('limpFoto')?.addEventListener('change',()=>onPhotoSelect('limp','limpFoto','limpFotoPreview'));
+  $('trazaFoto')?.addEventListener('change',()=>onPhotoSelect('traza','trazaFoto','trazaFotoPreview'));
+  // Checklist listeners
+  $('btnCheckApertura')?.addEventListener('click',()=>showChecklist('apertura'));
+  $('btnCheckCierre')?.addEventListener('click',()=>showChecklist('cierre'));
+  $('btnSaveCheck')?.addEventListener('click',saveChecklist);
+  // Label listeners
+  $('btnGenLabel')?.addEventListener('click',generateLabel);
+  $('btnPrintLabel')?.addEventListener('click',printLabel);
+  // Checklist admin listeners
+  $('btnAddCheckApertura')?.addEventListener('click',addCheckApertura);
+  $('btnAddCheckCierre')?.addEventListener('click',addCheckCierre);
+  // Set default dates for labels
+  if($('etPrep'))$('etPrep').value=today;
   checkSession();
 });
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
