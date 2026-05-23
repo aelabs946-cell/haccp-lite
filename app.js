@@ -760,7 +760,7 @@ function toggleVoice(input, btn){
   }
   const recognition = new SpeechRecognition();
   recognition.lang = 'es-CO';
-  recognition.continuous = true;
+  recognition.continuous = false;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
@@ -818,4 +818,3 @@ function stopVoice(btn, input){
   input.classList.remove('voice-active');
   STATE.voiceActive = null;
 }
-
