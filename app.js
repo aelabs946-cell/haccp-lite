@@ -214,12 +214,36 @@ function initStatusButtons(){
     g.addEventListener('click',e=>{const b=e.target.closest('.status-btn');if(!b)return;
       g.querySelectorAll('.status-btn').forEach(x=>x.classList.remove('active'));
       b.classList.add('active'); STATE.currentStatus[fid||g.id]=b.dataset.val;
-      const af=g.closest('form')?.querySelector('[id*="Accion"]');
-      if(af)af.style.display=b.dataset.val==='accion_correctiva'?'block':'none';
+      // Show/hide AC panel based on status
+      const form=g.closest('form');
+      if(form){
+        const acPanel=form.querySelector('.ac-panel');
+        if(acPanel) acPanel.style.display=(b.dataset.val!=='conforme')?'block':'none';
+      }
     });
   });
   $('enjSi')?.addEventListener('click',()=>{$('enjSi').classList.add('active');$('enjNo').classList.remove('active');});
   $('enjNo')?.addEventListener('click',()=>{$('enjNo').classList.add('active');$('enjSi').classList.remove('active');});
+}
+
+// ═══ CORRECTIVE ACTION HELPERS ═══
+const acResuelto={pcc:null,limp:null,traza:null};
+function toggleACResuelto(key,val){
+  acResuelto[key]=val;
+  $(key+'ACResueltaSi').classList.toggle('active',val==='si');
+  $(key+'ACResueltaNo').classList.toggle('active',val==='no');
+}
+function getACData(key){
+  const desc=$(key+'ACDesc')?.value?.trim()||'';
+  if(!desc) return null;
+  return {accion_descripcion:desc, accion_resuelta:acResuelto[key]==='si', accion_fecha:new Date().toISOString()};
+}
+function resetAC(key){
+  if($(key+'ACDesc')) $(key+'ACDesc').value='';
+  if($(key+'ACPanel')) $(key+'ACPanel').style.display='none';
+  acResuelto[key]=null;
+  $(key+'ACResueltaSi')?.classList.remove('active');
+  $(key+'ACResueltaNo')?.classList.remove('active');
 }
 
 // ══════════════════════════════
@@ -305,8 +329,11 @@ async function handlePCC(e){
   }
   const estado=STATE.currentStatus['formPCC']||'conforme';
   const foto=STATE.photos.pcc;
-  const r=await insertRecord({tipo:'pcc',datos:{equipo,tipo_medicion:tipo_med,valor,unidad,lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp,foto},estado,observaciones:$('pccObs').value.trim(),accion_correctiva:$('pccAccion')?.value?.trim()||''});
-  if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);clearPhoto('pcc');$('pccRangeIndicator').style.display='none';$('pccMedicionBool').style.display='none';$('pccMedicionNum').style.display='block';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  const ac=getACData('pcc');
+  const datos={equipo,tipo_medicion:tipo_med,valor,unidad,lim_inf:limInf,lim_sup:limSup,fuera_rango:fueraRango,responsable:resp,foto};
+  if(ac) datos.accion_correctiva=ac;
+  const r=await insertRecord({tipo:'pcc',datos,estado,observaciones:$('pccObs').value.trim(),accion_correctiva:ac?.accion_descripcion||''});
+  if(r){toast('✅ PCC registrado');$('formPCC').reset();fillResponsable(STATE.responsable);clearPhoto('pcc');resetAC('pcc');$('pccRangeIndicator').style.display='none';$('pccMedicionBool').style.display='none';$('pccMedicionNum').style.display='block';refreshPCCList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
 async function handleLimpieza(e){
@@ -316,8 +343,11 @@ async function handleLimpieza(e){
   const enjuague=$('enjSi').classList.contains('active')?'Sí':'No';
   const estado=STATE.currentStatus['formLimpieza']||STATE.currentStatus['limpStatus']||'conforme';
   const foto=STATE.photos.limp;
-  const r=await insertRecord({tipo:'limpieza',datos:{area,tipo_limpieza:$('limpTipo').value,producto_limpieza:prod,producto_desinfeccion:$('limpDesinf').value.trim(),concentracion:$('limpConc').value.trim(),tiempo_contacto:$('limpTiempo').value.trim(),metodo:$('limpMetodo').value,enjuague_final:enjuague,responsable:resp,foto},estado,observaciones:$('limpObs').value.trim()});
-  if(r){toast('✅ Limpieza registrada');$('formLimpieza').reset();fillResponsable(STATE.responsable);clearPhoto('limp');refreshLimpList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  const ac=getACData('limp');
+  const datos={area,tipo_limpieza:$('limpTipo').value,producto_limpieza:prod,producto_desinfeccion:$('limpDesinf').value.trim(),concentracion:$('limpConc').value.trim(),tiempo_contacto:$('limpTiempo').value.trim(),metodo:$('limpMetodo').value,enjuague_final:enjuague,responsable:resp,foto};
+  if(ac) datos.accion_correctiva=ac;
+  const r=await insertRecord({tipo:'limpieza',datos,estado,observaciones:$('limpObs').value.trim()});
+  if(r){toast('✅ Limpieza registrada');$('formLimpieza').reset();fillResponsable(STATE.responsable);clearPhoto('limp');resetAC('limp');refreshLimpList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
 async function handleTraza(e){
@@ -337,8 +367,10 @@ async function handleTraza(e){
     datos.destino_rechazo=$('trazaDestinoRechazo').value;
   }
   datos.foto=STATE.photos.traza;
+  const ac=getACData('traza');
+  if(ac) datos.accion_correctiva=ac;
   const r=await insertRecord({tipo:'trazabilidad',datos,estado,observaciones:$('trazaObs').value.trim()});
-  if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);clearPhoto('traza');$('trazaRechazoFields').style.display='none';refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
+  if(r){toast('✅ Trazabilidad registrada');$('formTraza').reset();fillResponsable(STATE.responsable);clearPhoto('traza');resetAC('traza');$('trazaRechazoFields').style.display='none';refreshTrazaList();refreshDashboard();if(navigator.vibrate)navigator.vibrate(150);}
 }
 
 // ═══ TRAZA RECHAZO TOGGLE ═══
@@ -444,16 +476,18 @@ function recordHTML(r){
   else if(r.tipo==='limpieza'){title=d.area||'Limpieza';value=d.tipo_limpieza||d.producto_limpieza||''}
   else if(r.tipo==='trazabilidad'){title=d.lote||'Lote';value=d.producto||'';if(d.rechazado)value='❌ RECHAZADO — '+value}
   else if(r.tipo==='checklist'){title=(d.tipo_checklist==='apertura'?'☀️ Apertura':'🌙 Cierre');value=`${d.completados}/${d.total}`}
-  return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}</div></div><div class="record-value">${value}</div></div>`;
+  const hasAC=d.accion_correctiva;
+  const acBadge=hasAC?`<span style="font-size:10px;color:${hasAC.accion_resuelta?'var(--success)':'var(--danger)'};font-weight:700"> • ${hasAC.accion_resuelta?'✅ AC Resuelta':'⚠️ AC Pendiente'}</span>`:'';
+  return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}${acBadge}</div></div><div class="record-value">${value}</div></div>`;
 }
 function refreshDashboard(){
   const recs=STATE.records, today=new Date().toISOString().slice(0,10);
   const hoy=recs.filter(r=>(r.created_at||'').slice(0,10)===today);
-  const mes=recs.filter(r=>new Date(r.created_at).getMonth()===new Date().getMonth());
   const nc=hoy.filter(r=>r.estado!=='conforme');
+  const acCount=recs.filter(r=>r.datos?.accion_correctiva && !r.datos.accion_correctiva.accion_resuelta).length;
   $('kpiHoy').textContent=hoy.length; $('kpiAlertas').textContent=nc.length;
   $('kpiConf').textContent=(hoy.length?Math.round((hoy.length-nc.length)/hoy.length*100):100)+'%';
-  $('kpiTotal').textContent=mes.length;
+  $('kpiAC').textContent=acCount;
   $('recentList').innerHTML=recs.slice(0,10).map(recordHTML).join('')||'<p class="empty-state">Sin registros</p>';
   const badge=$('connBadge');
   if(badge) badge.innerHTML=STATE.isDemo?'<span style="color:var(--warning)">📱 Local</span>':'<span style="color:var(--accent)">☁️ Nube</span>';
@@ -699,6 +733,7 @@ function initVoice(){
   const inputs = document.querySelectorAll('.form-card input[type="text"], .form-card textarea, #globalResponsable');
   inputs.forEach(inp => {
     if(inp.type==='file' || inp.type==='date' || inp.type==='number' || inp.classList.contains('photo-input')) return;
+    if(inp.style.display === 'none' || inp.type === 'hidden') return;
     const wrap = document.createElement('div');
     wrap.className = 'voice-wrap';
     inp.parentNode.insertBefore(wrap, inp);
@@ -740,17 +775,18 @@ function toggleVoice(input, btn){
   };
 
   recognition.onresult = (event) => {
-    let interim = '';
-    for(let i = event.resultIndex; i < event.results.length; i++){
-      const t = event.results[i][0].transcript;
+    let finalT = '';
+    let interimT = '';
+    for(let i = 0; i < event.results.length; i++){
       if(event.results[i].isFinal){
-        finalTranscript += t + ' ';
+        finalT += event.results[i][0].transcript + ' ';
       } else {
-        interim = t;
+        interimT += event.results[i][0].transcript;
       }
     }
+    finalTranscript = finalT; // save for onend if needed
     const separator = startValue && !startValue.endsWith(' ') ? ' ' : '';
-    input.value = startValue + separator + finalTranscript + interim;
+    input.value = startValue + separator + finalT + interimT;
     // Trigger input event for any listeners
     input.dispatchEvent(new Event('input', {bubbles:true}));
   };
@@ -782,3 +818,4 @@ function stopVoice(btn, input){
   input.classList.remove('voice-active');
   STATE.voiceActive = null;
 }
+
