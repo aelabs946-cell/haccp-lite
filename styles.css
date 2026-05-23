@@ -293,6 +293,20 @@ select.input{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmln
 .label-preview p{font-size:12px;margin:4px 0;color:var(--text2)}
 .label-preview .label-big{font-size:18px;font-weight:800;color:var(--text);margin:8px 0}
 
+/* ===== VOICE DICTATION ===== */
+.voice-wrap{position:relative;display:flex;align-items:stretch;gap:0;margin-bottom:10px}
+.voice-wrap .input{margin-bottom:0;border-top-right-radius:0;border-bottom-right-radius:0;flex:1}
+.voice-wrap .textarea{border-top-right-radius:0;border-bottom-right-radius:0}
+.voice-btn{width:48px;flex-shrink:0;border:1.5px solid var(--card-border);border-left:none;
+  border-radius:0 var(--radius) var(--radius) 0;background:rgba(12,22,41,.8);
+  color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:var(--transition);-webkit-tap-highlight-color:transparent}
+.voice-btn:active{background:rgba(6,182,212,.1);color:var(--accent)}
+.voice-btn.recording{background:rgba(244,63,94,.12);color:var(--danger);border-color:rgba(244,63,94,.3);
+  animation:voicePulse 1.2s ease-in-out infinite}
+.voice-active{border-color:var(--danger)!important;box-shadow:0 0 0 3px rgba(244,63,94,.15)!important}
+@keyframes voicePulse{0%,100%{background:rgba(244,63,94,.08)}50%{background:rgba(244,63,94,.2)}}
+
 /* ===== RESPONSIVE ===== */
 @media(min-width:480px){
   .kpi-grid{gap:12px}
@@ -304,4 +318,3 @@ select.input{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmln
   .input-row{gap:14px}
   .section-title{font-size:24px}
 }
-
