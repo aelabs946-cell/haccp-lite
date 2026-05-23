@@ -2,12 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>HACCP-Lite — GD FORGE | Control de Inocuidad</title>
-<meta name="description" content="Sistema profesional de control HACCP por GD FORGE — Giovanni Duarte MVZ">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>HACCP-Lite — GD FORGE | Control de Inocuidad Alimentaria</title>
+<meta name="description" content="Sistema profesional de control HACCP, trazabilidad y limpieza para restaurantes y plantas de alimentos — GD FORGE by Giovanni Duarte MVZ">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b1120">
+<meta name="theme-color" content="#060d1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -121,6 +124,10 @@
         <input type="text" id="pccAccion" class="input" placeholder="Describir acción correctiva tomada..." style="display:none">
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="pccResp" class="input" placeholder="Nombre de quien registra" required>
+        <div class="form-section"><span class="form-section-title">📸 Evidencia Fotográfica</span></div>
+        <input type="file" accept="image/*" capture="environment" id="pccFoto" class="photo-input">
+        <label for="pccFoto" class="photo-label">📸 Tomar o Adjuntar Foto</label>
+        <div id="pccFotoPreview" class="photo-preview"></div>
         <button type="submit" class="btn btn-primary btn-block">💾 Guardar Registro PCC</button>
       </form>
       <h3 class="sub-title">Últimos Registros PCC</h3>
@@ -163,6 +170,10 @@
         <textarea id="limpObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="limpResp" class="input" placeholder="Nombre de quien registra" required>
+        <div class="form-section"><span class="form-section-title">📸 Evidencia Fotográfica</span></div>
+        <input type="file" accept="image/*" capture="environment" id="limpFoto" class="photo-input">
+        <label for="limpFoto" class="photo-label">📸 Tomar o Adjuntar Foto</label>
+        <div id="limpFotoPreview" class="photo-preview"></div>
         <button type="submit" class="btn btn-primary btn-block">💾 Guardar Limpieza</button>
       </form>
       <h3 class="sub-title">Últimos Registros Limpieza</h3>
@@ -232,10 +243,48 @@
         <textarea id="trazaObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="trazaResp" class="input" placeholder="Responsable de recepción" required>
+        <div class="form-section"><span class="form-section-title">📸 Evidencia Fotográfica</span></div>
+        <input type="file" accept="image/*" capture="environment" id="trazaFoto" class="photo-input">
+        <label for="trazaFoto" class="photo-label">📸 Tomar o Adjuntar Foto</label>
+        <div id="trazaFotoPreview" class="photo-preview"></div>
         <button type="submit" class="btn btn-primary btn-block">💾 Guardar Trazabilidad</button>
       </form>
       <h3 class="sub-title">Últimos Registros Trazabilidad</h3>
       <div id="trazaList" class="record-list"></div>
+
+      <!-- ETIQUETAS DE PREPARACIÓN -->
+      <div class="form-card" style="margin-top:16px">
+        <div class="form-section"><span class="form-section-title">🏷️ Etiquetas de Preparación</span></div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Genera etiquetas imprimibles para tus productos preparados.</p>
+        <input type="text" id="etProd" class="input" placeholder="Nombre del producto (ej: Pollo deshuesado)">
+        <div class="input-row">
+          <div class="input-col"><label class="label">Fecha Prep.</label><input type="date" id="etPrep" class="input"></div>
+          <div class="input-col"><label class="label">Fecha Vence</label><input type="date" id="etVence" class="input"></div>
+        </div>
+        <input type="text" id="etResp" class="input" placeholder="Responsable">
+        <button class="btn btn-primary btn-block" id="btnGenLabel">🏷️ Vista Previa Etiqueta</button>
+        <div id="labelPreview" class="label-preview" style="display:none"></div>
+        <button class="btn btn-outline btn-block" id="btnPrintLabel" style="margin-top:6px">🖨️ Descargar Etiqueta PDF</button>
+      </div>
+    </section>
+
+    <!-- CHECKLISTS -->
+    <section id="tabChecklist" class="tab-panel">
+      <h2 class="section-title">✅ Checklists Diarios</h2>
+      <div class="form-card">
+        <div class="check-toggle">
+          <button class="btn active" id="btnCheckApertura">☀️ Apertura</button>
+          <button class="btn" id="btnCheckCierre">🌙 Cierre</button>
+        </div>
+        <div class="check-progress" id="checkProgress" style="display:none">
+          <div class="check-progress-bar" id="checkProgressBar" style="width:0%"></div>
+        </div>
+        <p style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px" id="checkProgressText">Selecciona un tipo</p>
+        <div id="checklistItems"></div>
+        <label class="label" style="margin-top:12px">Observaciones</label>
+        <textarea id="checkObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
+        <button class="btn btn-primary btn-block" id="btnSaveCheck" style="margin-top:12px">💾 Guardar Checklist</button>
+      </div>
     </section>
 
     <!-- REPORTES -->
@@ -243,7 +292,7 @@
       <h2 class="section-title">📄 Reportes</h2>
       <div class="form-card">
         <label class="label">Tipo de Control</label>
-        <select id="repTipo" class="input"><option value="">Todos</option><option value="pcc">PCC</option><option value="limpieza">Limpieza</option><option value="trazabilidad">Trazabilidad</option></select>
+        <select id="repTipo" class="input"><option value="">Todos</option><option value="pcc">PCC</option><option value="limpieza">Limpieza</option><option value="trazabilidad">Trazabilidad</option><option value="checklist">Checklists</option></select>
         <div class="input-row">
           <div class="input-col"><label class="label">Desde</label><input type="date" id="repDesde" class="input"></div>
           <div class="input-col"><label class="label">Hasta</label><input type="date" id="repHasta" class="input"></div>
@@ -330,6 +379,24 @@
           </div>
         </div>
 
+        <!-- Checklists Config -->
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">✅ Checklists de Apertura</span></div>
+          <div id="checkAperturaList"></div>
+          <div class="input-row" style="margin-top:8px">
+            <input id="newCheckApertura" class="input" placeholder="Nuevo item de apertura..." style="margin:0">
+            <button class="btn btn-primary" id="btnAddCheckApertura" style="height:50px;min-width:80px">➕</button>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-section"><span class="form-section-title">🌙 Checklists de Cierre</span></div>
+          <div id="checkCierreList"></div>
+          <div class="input-row" style="margin-top:8px">
+            <input id="newCheckCierre" class="input" placeholder="Nuevo item de cierre..." style="margin:0">
+            <button class="btn btn-primary" id="btnAddCheckCierre" style="height:50px;min-width:80px">➕</button>
+          </div>
+        </div>
+
         <!-- Usuarios -->
         <div class="form-card">
           <div class="form-section"><span class="form-section-title">👥 Gestión de Usuarios</span></div>
@@ -346,6 +413,7 @@
     <button class="nav-btn" data-tab="tabPCC"><span class="nav-icon">🌡️</span><span class="nav-label">PCC</span></button>
     <button class="nav-btn" data-tab="tabLimpieza"><span class="nav-icon">🧹</span><span class="nav-label">Limpieza</span></button>
     <button class="nav-btn" data-tab="tabTraza"><span class="nav-icon">📦</span><span class="nav-label">Trazab.</span></button>
+    <button class="nav-btn" data-tab="tabChecklist"><span class="nav-icon">✅</span><span class="nav-label">Check</span></button>
     <button class="nav-btn" data-tab="tabReportes"><span class="nav-icon">📄</span><span class="nav-label">Reportes</span></button>
     <button class="nav-btn" data-tab="tabAdmin" id="navAdmin" style="display:none"><span class="nav-icon">⚙️</span><span class="nav-label">Config</span></button>
   </nav>
