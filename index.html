@@ -116,6 +116,13 @@
             <span class="module-desc">Analítica</span>
           </div>
         </button>
+        <button class="module-card" onclick="switchTab('tabCapacitacion')">
+          <div class="module-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
+          <div class="module-content">
+            <span class="module-title">Academia</span>
+            <span class="module-desc">Entrenamiento</span>
+          </div>
+        </button>
         <button class="module-card" id="btnAdminModule" onclick="switchTab('tabAdmin')" style="display:none">
           <div class="module-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
           <div class="module-content">
@@ -130,11 +137,56 @@
       </div>
     </section>
 
+    <!-- CAPACITACION -->
+    <section id="tabCapacitacion" class="tab-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 class="section-title">🎓 Centro de Capacitación</h2>
+      </div>
+      <div class="form-card">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">Material oficial de entrenamiento para garantizar el cumplimiento de los estándares de inocuidad y calidad en planta.</p>
+        
+        <div class="training-list">
+          <div class="training-item" onclick="openHelp('pcc')">
+            <div class="training-icon">🌡️</div>
+            <div class="training-info">
+              <h4>Manejo de PCC</h4>
+              <p>Guía rápida de control de temperaturas</p>
+            </div>
+            <div class="training-action">Leer</div>
+          </div>
+          <div class="training-item" onclick="openHelp('limpieza')">
+            <div class="training-icon">🧹</div>
+            <div class="training-info">
+              <h4>POE de Limpieza</h4>
+              <p>Protocolos de desinfección de áreas</p>
+            </div>
+            <div class="training-action">Leer</div>
+          </div>
+          <div class="training-item" onclick="toast('Video próximamente','warning')">
+            <div class="training-icon">🦺</div>
+            <div class="training-info">
+              <h4>BPM y Seguridad</h4>
+              <p>Buenas Prácticas de Manufactura</p>
+            </div>
+            <div class="training-action">Video</div>
+          </div>
+          <div class="training-item" onclick="toast('Guía próximamente','warning')">
+            <div class="training-icon">🦠</div>
+            <div class="training-info">
+              <h4>Alérgenos y Contaminación</h4>
+              <p>Prevención de cruces</p>
+            </div>
+            <div class="training-action">Leer</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- PCC -->
     <section id="tabPCC" class="tab-panel">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2 class="section-title">🌡️ Control PCC</h2>
-        <button class="btn-icon-only" onclick="openTutorial('pcc')" title="Ver Tutorial">❓</button>
+        <button class="btn-icon-only" onclick="openHelp('pcc')" title="Ver Ayuda">❓</button>
       </div>
       <form id="formPCC" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Punto de Control</span></div>
@@ -196,7 +248,7 @@
     <section id="tabLimpieza" class="tab-panel">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2 class="section-title">🧹 Limpieza y Desinfección</h2>
-        <button class="btn-icon-only" onclick="openTutorial('limpieza')" title="Ver Tutorial">❓</button>
+        <button class="btn-icon-only" onclick="openHelp('limpieza')" title="Ver Ayuda">❓</button>
       </div>
       <form id="formLimpieza" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Ubicación</span></div>
@@ -493,11 +545,13 @@
 
   <div id="appToast" class="toast"></div>
 
-  <!-- TUTORIAL MODAL -->
-  <div id="tutorialModal" class="modal">
-    <div class="modal-content" style="padding:0;overflow:hidden;background:#000;position:relative">
-      <button class="modal-close" onclick="$('tutorialModal').classList.remove('show')" style="position:absolute;top:10px;right:10px;z-index:100;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center">✕</button>
-      <video id="tutorialVideo" src="https://cdn.pixabay.com/video/2019/11/04/28795-372076044_tiny.mp4" controls autoplay playsinline style="width:100%;display:block;border-radius:var(--radius)"></video>
+  <!-- HELP MODAL -->
+  <div id="helpModal" class="modal">
+    <div class="modal-content" style="padding:24px;position:relative">
+      <button class="modal-close" onclick="$('helpModal').classList.remove('show')" style="position:absolute;top:12px;right:12px;z-index:100;background:rgba(255,255,255,0.1);color:var(--text);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;font-weight:bold;cursor:pointer;transition:var(--transition)">✕</button>
+      <div id="helpContent" style="max-height:60vh;overflow-y:auto;padding-right:10px">
+        <!-- Contenido dinámico inyectado desde app.js -->
+      </div>
     </div>
   </div>
 </div>
