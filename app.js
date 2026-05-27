@@ -44,7 +44,7 @@ function toast(msg, type='success', parent='appToast'){
 // ═══ LOCAL STORAGE ═══
 function getRecords(){ try{return JSON.parse(localStorage.getItem('haccp_records')||'[]')}catch{return[]} }
 function saveRecords(r){ localStorage.setItem('haccp_records',JSON.stringify(r)) }
-function addRecord(r){ const rec={...r,id:crypto.randomUUID(),created_at:new Date().toISOString()}; const recs=getRecords(); recs.unshift(rec); saveRecords(recs); STATE.records=recs; return rec; }
+function addRecord(r){ const rec={...r,id:r.id||crypto.randomUUID(),created_at:r.created_at||new Date().toISOString(),synced:STATE.isDemo?true:false}; const recs=getRecords(); recs.unshift(rec); saveRecords(recs); STATE.records=recs; syncPendingRecords(); return rec; }
 
 // ══════════════════════════════
 // CONFIG — Dynamic Dropdowns
@@ -247,24 +247,82 @@ function resetAC(key){
 }
 
 // ══════════════════════════════
+// OFFLINE SYNC QUEUE
+// ══════════════════════════════
+async function syncPendingRecords(){
+  if(STATE.isDemo) return;
+  const recs=getRecords();
+  const pending=recs.filter(r=>r.synced===false);
+  const badge=$('syncBadge');
+  if(!badge) return;
+  
+  if(pending.length===0){
+    badge.style.display='none';
+    return;
+  }
+  
+  badge.style.display='inline-block';
+  badge.textContent=`⏳ ${pending.length} pdtes`;
+  
+  if(!navigator.onLine) return;
+  
+  let syncedCount=0;
+  badge.textContent='🔄 Sincronizando...';
+  
+  for(let i=pending.length-1; i>=0; i--){
+    const r=pending[i];
+    const row={id:r.id, restaurant_id:STATE.restaurant_id,tipo:r.tipo,datos:r.datos,estado:r.estado,observaciones:r.observaciones||null,accion_correctiva:r.accion_correctiva||null,registrado_por:STATE.user.id,created_at:r.created_at};
+    try{
+      const{error}=await sb.from('control_records').insert([row]);
+      if(!error || error.code === '23505'){ r.synced=true; syncedCount++; } // 23505 is Unique Violation (already synced)
+      else break; // Network error or other, stop queue
+    }catch(e){ break; }
+  }
+  
+  if(syncedCount>0){
+    saveRecords(recs);
+    STATE.records=recs;
+    toast(`🔄 ${syncedCount} registros sincronizados a la nube`,'success');
+    refreshDashboard();
+  }
+  
+  const remaining=recs.filter(r=>r.synced===false);
+  if(remaining.length===0) badge.style.display='none';
+  else badge.textContent=`⏳ ${remaining.length} pdtes`;
+}
+
+// ══════════════════════════════
 // DATA OPERATIONS
 // ══════════════════════════════
 async function loadRecords(){
   if(STATE.isDemo){STATE.records=getRecords();return}
   try{
     const{data,error}=await sb.from('control_records').select('*').order('created_at',{ascending:false}).limit(200);
-    if(!error&&data){STATE.records=data;saveRecords(data)} else STATE.records=getRecords();
+    if(!error&&data){
+      const localPending=getRecords().filter(r=>r.synced===false);
+      STATE.records=[...localPending, ...data];
+      saveRecords(STATE.records);
+      syncPendingRecords();
+    } else STATE.records=getRecords();
   }catch(e){STATE.records=getRecords()}
 }
 
 async function insertRecord(record){
+  record.id = record.id || crypto.randomUUID();
+  record.created_at = record.created_at || new Date().toISOString();
   if(STATE.isDemo) return addRecord(record);
   try{
-    const row={restaurant_id:STATE.restaurant_id,tipo:record.tipo,datos:record.datos,estado:record.estado,observaciones:record.observaciones||null,accion_correctiva:record.accion_correctiva||null,registrado_por:STATE.user.id};
+    const row={id:record.id, restaurant_id:STATE.restaurant_id,tipo:record.tipo,datos:record.datos,estado:record.estado,observaciones:record.observaciones||null,accion_correctiva:record.accion_correctiva||null,registrado_por:STATE.user.id,created_at:record.created_at};
     const{data,error}=await sb.from('control_records').insert([row]).select();
-    if(error){toast('⚠️ Guardado local','error');return addRecord(record);}
+    if(error){
+      if(error.code !== '23505') toast('💾 Guardado local (Sincronizará al haber señal)','warning');
+      return addRecord(record);
+    }
     const ins=data[0]; STATE.records.unshift(ins); saveRecords(STATE.records); return ins;
-  }catch(e){toast('⚠️ Guardado local','error');return addRecord(record);}
+  }catch(e){
+    toast('💾 Guardado local (Sincronizará al haber señal)','warning');
+    return addRecord(record);
+  }
 }
 
 // ═══ PCC — Dynamic Form ═══
@@ -718,9 +776,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   if($('etPrep'))$('etPrep').value=today;
   initVoice();
   checkSession();
+  
+  window.addEventListener('online', syncPendingRecords);
 });
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-
 // ══════════════════════════════
 // VOICE DICTATION — Web Speech API
 // ══════════════════════════════
