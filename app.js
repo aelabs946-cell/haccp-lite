@@ -171,7 +171,7 @@ async function enterApp(user){
 
 function applyRole(){
   const isAdmin=STATE.role==='admin';
-  const nav=$('navAdmin'); if(nav) nav.style.display=isAdmin?'flex':'none';
+  const btnAdmin=$('btnAdminModule'); if(btnAdmin) btnAdmin.style.display=isAdmin?'flex':'none';
 }
 
 async function handleLogout(){
@@ -198,13 +198,30 @@ function setResponsable(){const n=$('globalResponsable').value.trim();if(!n){toa
 // ═══ NAV ═══
 function switchTab(tabId){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  $(tabId).classList.add('active'); document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+  $(tabId).classList.add('active');
   STATE.currentTab=tabId;
+  
+  if(tabId==='tabDashboard'){
+    $('btnBack').style.display='none';
+    $('headerLogoImg').style.display='block';
+  }else{
+    $('btnBack').style.display='flex';
+    $('headerLogoImg').style.display='none';
+  }
+  window.scrollTo(0,0);
+  
   if(tabId==='tabAdmin') loadAdminData();
   if(tabId==='tabPCC') refreshPCCList();
   if(tabId==='tabLimpieza') refreshLimpList();
   if(tabId==='tabTraza') refreshTrazaList();
+}
+
+function openTutorial(mod){
+  const v = $('tutorialVideo');
+  if(mod==='pcc') v.src='https://cdn.pixabay.com/video/2019/11/04/28795-372076044_tiny.mp4';
+  if(mod==='limpieza') v.src='https://cdn.pixabay.com/video/2021/05/25/75122-554625293_tiny.mp4';
+  $('tutorialModal').classList.add('show');
+  v.play().catch(()=>{});
 }
 
 // ═══ STATUS BTNS ═══
@@ -739,6 +756,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('showForgot').addEventListener('click',e=>{e.preventDefault();showForgotForm()});
   $('btnSetResp').addEventListener('click',setResponsable);
   $('globalResponsable').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();setResponsable()}});
+  $('btnBack')?.addEventListener('click',()=>switchTab('tabDashboard'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
   $('formPCC').addEventListener('submit',handlePCC);
   $('formLimpieza').addEventListener('submit',handleLimpieza);
