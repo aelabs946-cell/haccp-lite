@@ -18,6 +18,10 @@
 
 <!-- ===== LOGIN ===== -->
 <div id="loginScreen" class="login-screen">
+  <video class="bg-video" autoplay loop muted playsinline>
+    <source src="https://cdn.pixabay.com/video/2021/08/04/83896-584735316_tiny.mp4" type="video/mp4">
+  </video>
+  <div class="login-overlay"></div>
   <div class="login-card">
     <div class="login-logo"><img src="logo.png" alt="GD FORGE"></div>
     <h1 class="login-title">HACCP-Lite</h1>
@@ -50,7 +54,8 @@
 <div id="appMain" class="app-main" style="display:none">
   <header class="header">
     <div class="header-left">
-      <img src="logo.png" class="header-logo" alt="GD FORGE">
+      <button class="btn-icon-only" id="btnBack" style="display:none;margin-right:8px" title="Volver al inicio"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <img src="logo.png" class="header-logo" alt="GD FORGE" id="headerLogoImg">
       <div class="header-info">
         <h1 class="header-title">HACCP-Lite <span id="headerMode" style="display:none;font-size:10px;background:var(--warning);color:#000;padding:1px 6px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:4px">DEMO</span></h1>
         <p class="header-sub" id="headerUser">GD FORGE</p>
@@ -77,8 +82,63 @@
         <div class="kpi-card kpi-success"><span class="kpi-value" id="kpiConf">100%</span><span class="kpi-label">Conformidad</span></div>
         <div class="kpi-card kpi-danger"><span class="kpi-value" id="kpiAC">0</span><span class="kpi-label">Acc. Correctivas</span></div>
       </div>
-      <h3 class="sub-title">Actividad Reciente</h3>
-      <div id="recentList" class="record-list"><p class="empty-state">Sin registros. ¡Comienza registrando un control!</p></div>
+      
+      <div class="module-grid">
+        <button class="module-card" onclick="switchTab('tabPCC')">
+          <video autoplay loop muted playsinline><source src="https://cdn.pixabay.com/video/2019/04/09/22687-330058145_tiny.mp4" type="video/mp4"></video>
+          <div class="module-overlay"></div>
+          <div class="module-content">
+            <span class="module-icon">🌡️</span>
+            <span class="module-title">PCC</span>
+            <span class="module-desc">Control de Temperaturas</span>
+          </div>
+        </button>
+        <button class="module-card" onclick="switchTab('tabLimpieza')">
+          <video autoplay loop muted playsinline><source src="https://cdn.pixabay.com/video/2021/05/25/75122-554625293_tiny.mp4" type="video/mp4"></video>
+          <div class="module-overlay"></div>
+          <div class="module-content">
+            <span class="module-icon">🧹</span>
+            <span class="module-title">Limpieza</span>
+            <span class="module-desc">Áreas y Desinfección</span>
+          </div>
+        </button>
+        <button class="module-card" onclick="switchTab('tabTraza')">
+          <video autoplay loop muted playsinline><source src="https://cdn.pixabay.com/video/2020/07/28/45878-444766858_tiny.mp4" type="video/mp4"></video>
+          <div class="module-overlay"></div>
+          <div class="module-content">
+            <span class="module-icon">📦</span>
+            <span class="module-title">Trazabilidad</span>
+            <span class="module-desc">Recepción y Rechazos</span>
+          </div>
+        </button>
+        <button class="module-card" onclick="switchTab('tabChecklist')">
+          <video autoplay loop muted playsinline><source src="https://cdn.pixabay.com/video/2019/04/28/23114-332997193_tiny.mp4" type="video/mp4"></video>
+          <div class="module-overlay"></div>
+          <div class="module-content">
+            <span class="module-icon">✅</span>
+            <span class="module-title">Checklists</span>
+            <span class="module-desc">Apertura y Cierre</span>
+          </div>
+        </button>
+        <button class="module-card" onclick="switchTab('tabReportes')">
+          <video autoplay loop muted playsinline><source src="https://cdn.pixabay.com/video/2018/09/16/18151-289569762_tiny.mp4" type="video/mp4"></video>
+          <div class="module-overlay"></div>
+          <div class="module-content">
+            <span class="module-icon">📄</span>
+            <span class="module-title">Reportes</span>
+            <span class="module-desc">Datos y Analítica</span>
+          </div>
+        </button>
+        <button class="module-card" id="btnAdminModule" onclick="switchTab('tabAdmin')" style="display:none">
+          <video autoplay loop muted playsinline><source src="https://cdn.pixabay.com/video/2020/05/25/40141-424756535_tiny.mp4" type="video/mp4"></video>
+          <div class="module-overlay"></div>
+          <div class="module-content">
+            <span class="module-icon">⚙️</span>
+            <span class="module-title">Config</span>
+            <span class="module-desc">Gestión General</span>
+          </div>
+        </button>
+      </div>
       <div class="app-footer">
         <div class="footer-brand"><img src="logo.png" class="footer-logo" alt="GD FORGE"><span class="footer-name">GD FORGE</span></div>
         <p class="footer-credits">Desarrollado por <strong>Giovanni Duarte MVZ</strong><br>Consultor en Calidad e Inocuidad Alimentaria</p>
@@ -87,7 +147,10 @@
 
     <!-- PCC -->
     <section id="tabPCC" class="tab-panel">
-      <h2 class="section-title">🌡️ PCC — Puntos Críticos</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 class="section-title">🌡️ Control PCC</h2>
+        <button class="btn-icon-only" onclick="openTutorial('pcc')" title="Ver Tutorial">❓</button>
+      </div>
       <form id="formPCC" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Punto de Control</span></div>
         <label class="label">PCC — Punto Crítico de Control</label>
@@ -146,7 +209,10 @@
 
     <!-- LIMPIEZA -->
     <section id="tabLimpieza" class="tab-panel">
-      <h2 class="section-title">🧹 Limpieza y Desinfección</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 class="section-title">🧹 Limpieza y Desinfección</h2>
+        <button class="btn-icon-only" onclick="openTutorial('limpieza')" title="Ver Tutorial">❓</button>
+      </div>
       <form id="formLimpieza" class="form-card">
         <div class="form-section"><span class="form-section-title">📍 Ubicación</span></div>
         <label class="label">Área</label>
@@ -440,16 +506,15 @@
     </section>
   </main>
 
-  <nav class="bottom-nav">
-    <button class="nav-btn active" data-tab="tabDashboard"><span class="nav-icon">📊</span><span class="nav-label">Inicio</span></button>
-    <button class="nav-btn" data-tab="tabPCC"><span class="nav-icon">🌡️</span><span class="nav-label">PCC</span></button>
-    <button class="nav-btn" data-tab="tabLimpieza"><span class="nav-icon">🧹</span><span class="nav-label">Limpieza</span></button>
-    <button class="nav-btn" data-tab="tabTraza"><span class="nav-icon">📦</span><span class="nav-label">Trazab.</span></button>
-    <button class="nav-btn" data-tab="tabChecklist"><span class="nav-icon">✅</span><span class="nav-label">Check</span></button>
-    <button class="nav-btn" data-tab="tabReportes"><span class="nav-icon">📄</span><span class="nav-label">Reportes</span></button>
-    <button class="nav-btn" data-tab="tabAdmin" id="navAdmin" style="display:none"><span class="nav-icon">⚙️</span><span class="nav-label">Config</span></button>
-  </nav>
   <div id="appToast" class="toast"></div>
+
+  <!-- TUTORIAL MODAL -->
+  <div id="tutorialModal" class="modal">
+    <div class="modal-content" style="padding:0;overflow:hidden;background:#000;position:relative">
+      <button class="modal-close" onclick="$('tutorialModal').classList.remove('show')" style="position:absolute;top:10px;right:10px;z-index:100;background:rgba(0,0,0,0.5);color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center">✕</button>
+      <video id="tutorialVideo" src="https://cdn.pixabay.com/video/2019/11/04/28795-372076044_tiny.mp4" controls autoplay playsinline style="width:100%;display:block;border-radius:var(--radius)"></video>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
