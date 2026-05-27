@@ -70,12 +70,12 @@
 
     <!-- DASHBOARD -->
     <section id="tabDashboard" class="tab-panel active">
-      <h2 class="section-title">📊 Dashboard <span id="connBadge" style="font-size:12px;font-weight:400"></span></h2>
+      <h2 class="section-title">📊 Dashboard <span id="connBadge" style="font-size:12px;font-weight:400"></span> <span id="syncBadge" style="font-size:10px;background:var(--warning);color:#000;padding:2px 6px;border-radius:10px;font-weight:800;display:none;vertical-align:middle;margin-left:6px;cursor:pointer" onclick="syncPendingRecords()"></span></h2>
       <div class="kpi-grid">
         <div class="kpi-card"><span class="kpi-value" id="kpiHoy">0</span><span class="kpi-label">Registros Hoy</span></div>
         <div class="kpi-card kpi-danger"><span class="kpi-value" id="kpiAlertas">0</span><span class="kpi-label">No Conformes</span></div>
         <div class="kpi-card kpi-success"><span class="kpi-value" id="kpiConf">100%</span><span class="kpi-label">Conformidad</span></div>
-        <div class="kpi-card"><span class="kpi-value" id="kpiTotal">0</span><span class="kpi-label">Total Mes</span></div>
+        <div class="kpi-card kpi-danger"><span class="kpi-value" id="kpiAC">0</span><span class="kpi-label">Acc. Correctivas</span></div>
       </div>
       <h3 class="sub-title">Actividad Reciente</h3>
       <div id="recentList" class="record-list"><p class="empty-state">Sin registros. ¡Comienza registrando un control!</p></div>
@@ -121,7 +121,17 @@
         </div>
         <label class="label">Observaciones</label>
         <textarea id="pccObs" class="input textarea" placeholder="Opcional..." rows="2"></textarea>
-        <input type="text" id="pccAccion" class="input" placeholder="Describir acción correctiva tomada..." style="display:none">
+        <!-- Acción Correctiva Panel -->
+        <div id="pccACPanel" class="ac-panel" style="display:none">
+          <div class="ac-header">⚠️ ACCIÓN CORRECTIVA REQUERIDA</div>
+          <label class="label">¿Qué acción se tomó?</label>
+          <textarea id="pccACDesc" class="input textarea" rows="2" placeholder="Describir la acción correctiva tomada..."></textarea>
+          <label class="label">¿Se verificó la corrección?</label>
+          <div class="input-row" style="margin-bottom:12px">
+            <button type="button" class="status-btn" id="pccACResueltaSi" data-val="si" onclick="toggleACResuelto('pcc','si')">✅ Sí, Resuelto</button>
+            <button type="button" class="status-btn" id="pccACResueltaNo" data-val="no" onclick="toggleACResuelto('pcc','no')">❌ No Resuelto</button>
+          </div>
+        </div>
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="pccResp" class="input" placeholder="Nombre de quien registra" required>
         <div class="form-section"><span class="form-section-title">📸 Evidencia Fotográfica</span></div>
@@ -168,6 +178,17 @@
         </div>
         <label class="label">Observaciones</label>
         <textarea id="limpObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
+        <!-- Acción Correctiva Panel -->
+        <div id="limpACPanel" class="ac-panel" style="display:none">
+          <div class="ac-header">⚠️ ACCIÓN CORRECTIVA REQUERIDA</div>
+          <label class="label">¿Qué acción se tomó?</label>
+          <textarea id="limpACDesc" class="input textarea" rows="2" placeholder="Describir la acción correctiva..."></textarea>
+          <label class="label">¿Se verificó la corrección?</label>
+          <div class="input-row" style="margin-bottom:12px">
+            <button type="button" class="status-btn" id="limpACResueltaSi" data-val="si" onclick="toggleACResuelto('limp','si')">✅ Sí, Resuelto</button>
+            <button type="button" class="status-btn" id="limpACResueltaNo" data-val="no" onclick="toggleACResuelto('limp','no')">❌ No Resuelto</button>
+          </div>
+        </div>
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="limpResp" class="input" placeholder="Nombre de quien registra" required>
         <div class="form-section"><span class="form-section-title">📸 Evidencia Fotográfica</span></div>
@@ -241,6 +262,17 @@
         </div>
         <label class="label">Observaciones</label>
         <textarea id="trazaObs" class="input textarea" rows="2" placeholder="Opcional..."></textarea>
+        <!-- Acción Correctiva Panel -->
+        <div id="trazaACPanel" class="ac-panel" style="display:none">
+          <div class="ac-header">⚠️ ACCIÓN CORRECTIVA REQUERIDA</div>
+          <label class="label">¿Qué acción se tomó?</label>
+          <textarea id="trazaACDesc" class="input textarea" rows="2" placeholder="Describir la acción correctiva..."></textarea>
+          <label class="label">¿Se verificó la corrección?</label>
+          <div class="input-row" style="margin-bottom:12px">
+            <button type="button" class="status-btn" id="trazaACResueltaSi" data-val="si" onclick="toggleACResuelto('traza','si')">✅ Sí, Resuelto</button>
+            <button type="button" class="status-btn" id="trazaACResueltaNo" data-val="no" onclick="toggleACResuelto('traza','no')">❌ No Resuelto</button>
+          </div>
+        </div>
         <div class="form-section"><span class="form-section-title">👤 Responsable</span></div>
         <input type="text" id="trazaResp" class="input" placeholder="Responsable de recepción" required>
         <div class="form-section"><span class="form-section-title">📸 Evidencia Fotográfica</span></div>
