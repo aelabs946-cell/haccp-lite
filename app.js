@@ -157,7 +157,11 @@ async function handleForgotPassword(e){
 async function enterApp(user){
   STATE.isDemo=false; STATE.user=user;
   $('loginScreen').style.display='none'; $('appMain').style.display='flex';
-  $('headerUser').textContent=user.email; $('headerMode').textContent='☁️'; $('headerMode').style.display='inline-block';
+  $('headerUser').textContent='Control de Procesos e Inocuidad'; 
+  $('headerMode').textContent='☁️ Cloud'; 
+  $('headerMode').style.background='rgba(6, 182, 212, 0.2)'; 
+  $('headerMode').style.color='var(--accent-light)';
+  $('headerMode').style.display='inline-block';
   try{
     const{data}=await sb.from('users').select('restaurant_id,nombre,rol').eq('id',user.id).single();
     if(data){
@@ -216,12 +220,62 @@ function switchTab(tabId){
   if(tabId==='tabTraza') refreshTrazaList();
 }
 
-function openTutorial(mod){
-  const v = $('tutorialVideo');
-  if(mod==='pcc') v.src='https://cdn.pixabay.com/video/2019/11/04/28795-372076044_tiny.mp4';
-  if(mod==='limpieza') v.src='https://cdn.pixabay.com/video/2021/05/25/75122-554625293_tiny.mp4';
-  $('tutorialModal').classList.add('show');
-  v.play().catch(()=>{});
+function openHelp(mod, isTraining = false){
+  const content = $('helpContent');
+  let html = '';
+  let cursoNombre = '';
+  if(mod === 'pcc') {
+    cursoNombre = 'Manejo de PCC';
+    html = `
+      <div class="help-title">🌡️ Ayuda: Control PCC</div>
+      <div class="help-q">¿Qué es un Punto Crítico de Control?</div>
+      <div class="help-a">Es un punto en el proceso donde se puede aplicar un control para prevenir o eliminar un peligro de inocuidad.</div>
+      <div class="help-q">¿Qué hago si la temperatura está fuera de rango?</div>
+      <div class="help-a">El sistema marcará "No Conforme". Debes seleccionar una Acción Correctiva inmediatamente (ej. rechazar lote o ajustar equipo).</div>
+      <div class="help-q">¿Por qué usar el micrófono?</div>
+      <div class="help-a">Puedes dictar las observaciones rápidamente sin tener que quitarte los guantes o escribir en la pantalla.</div>
+    `;
+  } else if(mod === 'limpieza') {
+    cursoNombre = 'POE de Limpieza';
+    html = `
+      <div class="help-title">🧹 Ayuda: Limpieza y Desinfección</div>
+      <div class="help-q">¿Cómo registrar un área limpia?</div>
+      <div class="help-a">Selecciona el área y los elementos limpiados. Si todo está en orden, marca "Conforme".</div>
+      <div class="help-q">¿Qué pasa si encuentro suciedad?</div>
+      <div class="help-a">Marca "No Conforme", toma una foto de la evidencia y documenta la acción correctiva (ej. volver a lavar).</div>
+      <div class="help-q">¿Es obligatorio subir fotos?</div>
+      <div class="help-a">Solo es obligatorio si el resultado es "No Conforme", para documentar el hallazgo.</div>
+    `;
+  }
+  
+  if (isTraining) {
+    html += `
+      <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--card-border);text-align:center">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Confirmo que he leído y comprendido los conceptos de este módulo.</p>
+        <button class="btn btn-primary" style="width:100%" onclick="firmarCapacitacion('${cursoNombre}')">✅ Firmar Capacitación</button>
+      </div>
+    `;
+  }
+  
+  content.innerHTML = html;
+  $('helpModal').classList.add('show');
+}
+
+async function firmarCapacitacion(curso) {
+  if(!STATE.user || !STATE.restaurant_id) return toast('Error de sesión', 'error');
+  const record = {
+    id: crypto.randomUUID(),
+    user_id: STATE.user.id,
+    restaurant_id: STATE.restaurant_id,
+    modulo: 'capacitacion',
+    data: { curso: curso, estado: 'Completado', responsable: STATE.responsable || STATE.user.email },
+    sync: 0,
+    created_at: new Date().toISOString()
+  };
+  await saveRecordLocally(record);
+  $('helpModal').classList.remove('show');
+  toast(`Capacitación firmada: ${curso}`, 'success');
+  triggerSync();
 }
 
 // ═══ STATUS BTNS ═══
