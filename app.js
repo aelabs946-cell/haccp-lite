@@ -53,7 +53,7 @@ async function loadConfig(){
   if(STATE.isDemo){ STATE.config={...DEFAULTS}; populateDropdowns(); return; }
   try{
     const{data:equip}=await sb.from('equipment').select('*').eq('activo',true).order('nombre');
-    const{data:rest}=await sb.from('restaurants').select('config,nombre,nit,direccion,telefono').single();
+    const{data:rest}=await sb.from('restaurants').select('config,nombre,nit,direccion,telefono,logo_base64').single();
     const c=rest?.config||{};
     STATE.config={
       equipment:equip||DEFAULTS.equipment,
@@ -66,9 +66,24 @@ async function loadConfig(){
       checklist_cierre:c.checklist_cierre||DEFAULTS.checklist_cierre
     };
     STATE.restaurant_info=rest||{};
-  }catch(e){ STATE.config={...DEFAULTS}; }
+    if(rest){
+      if(rest.nombre){
+        document.querySelectorAll('.footer-name, .login-title').forEach(el => el.textContent = rest.nombre);
+        if($('cfgNombre')) $('cfgNombre').value = rest.nombre;
+      }
+      if(rest.nit && $('cfgNit')) $('cfgNit').value = rest.nit;
+      if(rest.telefono && $('cfgTel')) $('cfgTel').value = rest.telefono;
+      if(rest.direccion && $('cfgDir')) $('cfgDir').value = rest.direccion;
+      if(rest.logo_base64){
+        document.querySelectorAll('.footer-logo, .login-logo img, #cfgLogoPreview').forEach(img => img.src = rest.logo_base64);
+        STATE.customLogo = rest.logo_base64;
+      }
+    }
+  }catch(err){console.error('Error loadConfig:',err); STATE.config={...DEFAULTS}; }
   populateDropdowns();
 }
+
+
 
 function populateDropdowns(){
   const C=STATE.config;
@@ -638,11 +653,23 @@ async function loadAdminCompany(){
   const r=STATE.restaurant_info||{};
   $('cfgNombre').value=r.nombre||''; $('cfgNit').value=r.nit||''; $('cfgDir').value=r.direccion||''; $('cfgTel').value=r.telefono||'';
 }
-async function saveCompanyInfo(){
+async function saveCompanyProfile(){
   if(STATE.isDemo){toast('No disponible en demo','error');return}
-  const data={nombre:$('cfgNombre').value.trim(),nit:$('cfgNit').value.trim(),direccion:$('cfgDir').value.trim(),telefono:$('cfgTel').value.trim()};
-  const{error}=await sb.from('restaurants').update(data).eq('id',STATE.restaurant_id);
-  if(error)toast('Error: '+error.message,'error'); else{toast('✅ Empresa actualizada');STATE.restaurant_info={...STATE.restaurant_info,...data};}
+  const data = {
+    nombre: $('cfgNombre').value.trim(),
+    nit: $('cfgNit').value.trim(),
+    direccion: $('cfgDir').value.trim(),
+    telefono: $('cfgTel').value.trim(),
+    logo_base64: STATE.customLogo || null
+  };
+  const {error} = await sb.from('restaurants').update(data).eq('id', STATE.restaurant_id);
+  if(error) toast('Error: '+error.message, 'error'); 
+  else {
+    toast('✅ Identidad Corporativa actualizada', 'success');
+    STATE.restaurant_info = {...STATE.restaurant_info, ...data};
+    if(data.nombre) document.querySelectorAll('.footer-name, .login-title').forEach(el => el.textContent = data.nombre);
+    if(data.logo_base64) document.querySelectorAll('.footer-logo, .login-logo img').forEach(img => img.src = data.logo_base64);
+  }
 }
 
 // --- PCC Equipment ---
@@ -834,6 +861,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('pccFoto')?.addEventListener('change',()=>onPhotoSelect('pcc','pccFoto','pccFotoPreview'));
   $('limpFoto')?.addEventListener('change',()=>onPhotoSelect('limp','limpFoto','limpFotoPreview'));
   $('trazaFoto')?.addEventListener('change',()=>onPhotoSelect('traza','trazaFoto','trazaFotoPreview'));
+  
+  // Custom Logo Listener
+  $('cfgLogoInput')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      STATE.customLogo = event.target.result;
+      if($('cfgLogoPreview')) $('cfgLogoPreview').src = STATE.customLogo;
+    };
+    reader.readAsDataURL(file);
+  });
   // Checklist listeners
   $('btnCheckApertura')?.addEventListener('click',()=>showChecklist('apertura'));
   $('btnCheckCierre')?.addEventListener('click',()=>showChecklist('cierre'));
