@@ -451,16 +451,24 @@
       <div id="adminContent">
         <!-- Empresa -->
         <div class="form-card">
-          <div class="form-section"><span class="form-section-title">🏢 Datos de la Empresa</span></div>
-          <label class="label">Nombre</label>
-          <input id="cfgNombre" class="input" placeholder="Nombre de la empresa">
+          <div class="form-section"><span class="form-section-title">🏢 Identidad Corporativa</span></div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Personaliza la aplicación con el nombre y logo de tu planta.</p>
+          
+          <label class="label">Logotipo de la Empresa</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <img id="cfgLogoPreview" src="logo.png" style="width:48px;height:48px;border-radius:8px;object-fit:contain;background:#fff;padding:2px">
+            <input type="file" id="cfgLogoInput" accept="image/*" class="input" style="padding:6px;flex:1">
+          </div>
+
+          <label class="label">Nombre de la Empresa</label>
+          <input id="cfgNombre" class="input" placeholder="Nombre oficial de la planta">
           <div class="input-row">
-            <div class="input-col"><label class="label">NIT</label><input id="cfgNit" class="input" placeholder="900.000.000-0"></div>
+            <div class="input-col"><label class="label">NIT / ID Fiscal</label><input id="cfgNit" class="input" placeholder="900.000.000-0"></div>
             <div class="input-col"><label class="label">Teléfono</label><input id="cfgTel" class="input" placeholder="300 000 0000"></div>
           </div>
           <label class="label">Dirección</label>
-          <input id="cfgDir" class="input" placeholder="Dirección de la planta">
-          <button class="btn btn-primary btn-block" id="btnSaveCompany">💾 Guardar Datos Empresa</button>
+          <input id="cfgDir" class="input" placeholder="Dirección física de la planta">
+          <button class="btn btn-primary btn-block" onclick="saveCompanyProfile()">💾 Guardar Identidad Corporativa</button>
         </div>
 
         <!-- PCC -->
