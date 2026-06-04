@@ -1,4 +1,4 @@
-const CACHE_NAME = 'haccp-lite-v1';
+const CACHE_NAME = 'haccp-lite-v3';
 const ASSETS = ['/', '/index.html', '/styles.css', '/app.js'];
 
 self.addEventListener('install', e => {
