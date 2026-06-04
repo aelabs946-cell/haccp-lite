@@ -28,7 +28,8 @@ const DEFAULTS = {
   tipos_limpieza:['Pre-operativa','Operativa','Post-operativa'],
   metodos:['Aspersión','Inmersión','Frotado','Nebulización'],
   checklist_apertura:['Verificar temperatura de neveras y congeladores','Encender equipos de cocción','Verificar limpieza general de pisos y superficies','Verificar uniformes y EPP del personal','Verificar lavamanos funcional con jabón y toallas','Revisar fechas de vencimiento en almacén','Verificar stock de productos de limpieza','Verificar funcionamiento de trampas de grasa'],
-  checklist_cierre:['Limpiar y desinfectar todas las superficies de trabajo','Sacar basura y lavar canecas','Cerrar llaves de gas','Apagar equipos de cocción','Verificar que neveras y congeladores estén cerrados','Registrar temperaturas finales de equipos','Barrer y trapear pisos','Verificar puertas y ventanas cerradas']
+  checklist_cierre:['Limpiar y desinfectar todas las superficies de trabajo','Sacar basura y lavar canecas','Cerrar llaves de gas','Apagar equipos de cocción','Verificar que neveras y congeladores estén cerrados','Registrar temperaturas finales de equipos','Barrer y trapear pisos','Verificar puertas y ventanas cerradas'],
+  capacitaciones:[]
 };
 
 let sb = null;
@@ -63,7 +64,8 @@ async function loadConfig(){
       tipos_limpieza:c.tipos_limpieza||DEFAULTS.tipos_limpieza,
       metodos:c.metodos_limpieza||DEFAULTS.metodos,
       checklist_apertura:c.checklist_apertura||DEFAULTS.checklist_apertura,
-      checklist_cierre:c.checklist_cierre||DEFAULTS.checklist_cierre
+      checklist_cierre:c.checklist_cierre||DEFAULTS.checklist_cierre,
+      capacitaciones:c.capacitaciones||DEFAULTS.capacitaciones
     };
     STATE.restaurant_info=rest||{};
     if(rest){
@@ -82,8 +84,6 @@ async function loadConfig(){
   }catch(err){console.error('Error loadConfig:',err); STATE.config={...DEFAULTS}; }
   populateDropdowns();
 }
-
-
 
 function populateDropdowns(){
   const C=STATE.config;
@@ -261,9 +261,21 @@ function openHelp(mod, isTraining = false){
       <div class="help-q">¿Es obligatorio subir fotos?</div>
       <div class="help-a">Solo es obligatorio si el resultado es "No Conforme", para documentar el hallazgo.</div>
     `;
+  } else {
+    // Dynamic Training Course
+    const course = STATE.config.capacitaciones.find(c => c.id === mod);
+    if(course) {
+      cursoNombre = course.titulo;
+      // Convert line breaks to paragraphs
+      const contHtml = course.contenido.split('\n').filter(p=>p.trim()).map(p=>`<p style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">${p}</p>`).join('');
+      html = `
+        <div class="help-title">🎓 ${course.titulo}</div>
+        ${contHtml}
+      `;
+    }
   }
   
-  if (isTraining) {
+  if (isTraining && cursoNombre) {
     html += `
       <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--card-border);text-align:center">
         <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Confirmo que he leído y comprendido los conceptos de este módulo.</p>
@@ -714,7 +726,16 @@ function renderConfigList(items, containerId, deleteFunc){
 }
 async function updateRestaurantConfig(){
   if(STATE.isDemo)return;
-  const config={areas_limpieza:STATE.config.areas,productos_limpieza:STATE.config.chemicals_clean,productos_desinfeccion:STATE.config.chemicals_desinf,tipos_limpieza:STATE.config.tipos_limpieza,metodos_limpieza:STATE.config.metodos,checklist_apertura:STATE.config.checklist_apertura,checklist_cierre:STATE.config.checklist_cierre};
+  const config={
+    areas_limpieza:STATE.config.areas,
+    productos_limpieza:STATE.config.chemicals_clean,
+    productos_desinfeccion:STATE.config.chemicals_desinf,
+    tipos_limpieza:STATE.config.tipos_limpieza,
+    metodos_limpieza:STATE.config.metodos,
+    checklist_apertura:STATE.config.checklist_apertura,
+    checklist_cierre:STATE.config.checklist_cierre,
+    capacitaciones:STATE.config.capacitaciones
+  };
   await sb.from('restaurants').update({config}).eq('id',STATE.restaurant_id);
   populateDropdowns();
 }
@@ -741,6 +762,60 @@ async function addCheckApertura(){const v=$('newCheckApertura').value.trim();if(
 async function deleteCheckApertura(i){STATE.config.checklist_apertura.splice(i,1);await updateRestaurantConfig();loadAdminChecklists();toast('Eliminado');}
 async function addCheckCierre(){const v=$('newCheckCierre').value.trim();if(!v)return;STATE.config.checklist_cierre.push(v);await updateRestaurantConfig();loadAdminChecklists();$('newCheckCierre').value='';toast('✅ Item agregado');}
 async function deleteCheckCierre(i){STATE.config.checklist_cierre.splice(i,1);await updateRestaurantConfig();loadAdminChecklists();toast('Eliminado');}
+
+// --- Capacitaciones Admin ---
+function loadAdminCapacitaciones(){
+  const list = $('adminAcademyList');
+  if(!list) return;
+  list.innerHTML = '';
+  STATE.config.capacitaciones.forEach(c => {
+    list.innerHTML += `<div class="config-item"><span class="config-name">🎓 ${c.titulo}</span><button class="config-del" onclick="deleteCapacitacion('${c.id}')">✕</button></div>`;
+  });
+}
+async function addCapacitacion(){
+  const titulo = $('capNombre').value.trim();
+  const contenido = $('capContenido').value.trim();
+  if(!titulo || !contenido){ toast('Escribe el título y contenido', 'error'); return; }
+  
+  STATE.config.capacitaciones.push({
+    id: crypto.randomUUID(),
+    titulo: titulo,
+    contenido: contenido
+  });
+  
+  await updateRestaurantConfig();
+  $('capNombre').value = '';
+  $('capContenido').value = '';
+  toast('✅ Curso agregado');
+}
+async function deleteCapacitacion(id){
+  if(!confirm('¿Eliminar este curso?')) return;
+  STATE.config.capacitaciones = STATE.config.capacitaciones.filter(c => c.id !== id);
+  await updateRestaurantConfig();
+  toast('Curso eliminado');
+}
+
+// --- Render Academy (User View) ---
+function renderAcademy(){
+  const list = $('academyList');
+  if(!list) return;
+  
+  if(STATE.config.capacitaciones.length === 0){
+    list.innerHTML = `<p style="text-align:center;color:var(--text3);padding:20px 0;font-size:13px">Aún no hay cursos disponibles en la Academia.</p>`;
+    return;
+  }
+  
+  list.innerHTML = STATE.config.capacitaciones.map(c => `
+    <div class="training-item" onclick="openHelp('${c.id}', true)">
+      <div class="training-icon">🎓</div>
+      <div class="training-info">
+        <h4>${c.titulo}</h4>
+        <p>Toca para iniciar el entrenamiento</p>
+      </div>
+      <div class="training-action">Empezar</div>
+    </div>
+  `).join('');
+}
 
 // --- Users ---
 async function loadAdminUsers(){
@@ -856,6 +931,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('btnAddArea')?.addEventListener('click',addArea);
   $('btnAddChemClean')?.addEventListener('click',addChemClean);
   $('btnAddChemDesinf')?.addEventListener('click',addChemDesinf);
+  $('btnAddCapacitacion')?.addEventListener('click',addCapacitacion);
   $('eqTipoMed')?.addEventListener('change',onEqTipoChange);
   // Photo listeners
   $('pccFoto')?.addEventListener('change',()=>onPhotoSelect('pcc','pccFoto','pccFotoPreview'));
