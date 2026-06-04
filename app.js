@@ -194,8 +194,10 @@ async function enterApp(user){
 }
 
 function applyRole(){
-  const isAdmin=STATE.role==='admin';
-  const btnAdmin=$('btnAdminModule'); if(btnAdmin) btnAdmin.style.display=isAdmin?'flex':'none';
+  const role = (STATE.role || '').trim().toLowerCase();
+  const isAdmin = role === 'admin';
+  const btnAdmin = $('btnAdminModule'); 
+  if(btnAdmin) btnAdmin.style.display = isAdmin ? 'flex' : 'none';
 }
 
 async function handleLogout(){
