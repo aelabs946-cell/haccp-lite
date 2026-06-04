@@ -178,13 +178,18 @@ async function enterApp(user){
   $('headerMode').style.color='var(--accent-light)';
   $('headerMode').style.display='inline-block';
   try{
-    const{data}=await sb.from('users').select('restaurant_id,nombre,rol').eq('id',user.id).single();
+    const{data, error}=await sb.from('users').select('restaurant_id,nombre,rol').eq('id',user.id).single();
+    if(error) toast('Error db: ' + error.message, 'error');
     if(data){
       STATE.restaurant_id=data.restaurant_id; STATE.role=data.rol||'empleado';
+      toast('Debug Rol: ' + STATE.role, 'warning');
       if(data.nombre){STATE.responsable=data.nombre; fillResponsable(data.nombre); $('responsableBar').style.display='none';}
       else $('responsableBar').style.display='block';
-    } else $('responsableBar').style.display='block';
-  }catch(e){$('responsableBar').style.display='block'}
+    } else {
+      toast('No se encontró usuario en BD', 'error');
+      $('responsableBar').style.display='block';
+    }
+  }catch(e){toast('Error fatal: '+e.message, 'error'); $('responsableBar').style.display='block'}
   await loadConfig(); await loadRecords(); refreshDashboard(); applyRole();
 }
 
