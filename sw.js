@@ -1,9 +1,18 @@
-const CACHE_NAME = 'haccp-lite-v12';
+const CACHE_NAME = 'haccp-lite-v13';
 const ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
-  '/app.js',
+  '/js/core.js',
+  '/js/sync.js',
+  '/js/auth.js',
+  '/js/ui.js',
+  '/js/photos.js',
+  '/js/voice.js',
+  '/js/records.js',
+  '/js/admin.js',
+  '/js/reports.js',
+  '/js/init.js',
   '/icon.svg',
   '/manifest.json'
 ];
