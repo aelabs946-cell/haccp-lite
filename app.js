@@ -788,63 +788,86 @@ async function addEquipment(){
     unidad=tipoMed==='concentracion'?($('eqUnidad').value||'ppm'):'°C';
   }
   if(STATE.isDemo){STATE.config.equipment.push({nombre,tipo_medicion:tipoMed,unidad,temp_min:min,temp_max:max});populateDropdowns();loadAdminEquipment();toast('✅ PCC agregado');$('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';return}
-  const{error}=await sb.from('equipment').insert([{restaurant_id:STATE.restaurant_id,nombre,tipo_medicion:tipoMed,unidad,temp_min:min,temp_max:max}]);
-  if(error){toast('Error: '+error.message,'error');return}
-  toast('✅ PCC agregado'); $('eqNombre').value='';$('eqMin').value='';$('eqMax').value='';
-  await loadConfig(); loadAdminEquipment();
-}
-async function deleteEquipment(id){
-  if(!confirm('¿Eliminar este PCC?'))return;
-  const{error}=await sb.from('equipment').delete().eq('id',id);
-  if(error){toast('Error','error');return}
-  toast('PCC eliminado'); await loadConfig(); loadAdminEquipment();
-}
+  const{error}=const ConfigManager = {
+  async fetchLatestConfig() {
+    if(STATE.isDemo) return STATE.config;
+    try {
+      const {data, error} = await sb.from('restaurants').select('config').eq('id', STATE.restaurant_id).single();
+      if(error) throw error;
+      return data?.config || {};
+    } catch(e) {
+      console.error("Error fetching latest config:", e);
+      return null;
+    }
+  },
+  
+  validateData(data) {
+    if (data === null || data === undefined) return false;
+    if (typeof data !== 'object') return false;
+    return true; // We allow empty arrays intentionally
+  },
 
-// --- Areas ---
-function renderConfigList(items, containerId, deleteFunc){
-  const el=$(containerId); el.innerHTML='';
-  items.forEach((item,i)=>{
-    el.innerHTML+=`<div class="config-item"><span class="config-name">${item}</span><button class="config-del" onclick="${deleteFunc}(${i})">✕</button></div>`;
-  });
-}
-async function updateRestaurantConfig(){
-  if(STATE.isDemo)return;
-  const config={
-    areas_limpieza:STATE.config.areas,
-    productos_limpieza:STATE.config.chemicals_clean,
-    productos_desinfeccion:STATE.config.chemicals_desinf,
-    tipos_limpieza:STATE.config.tipos_limpieza,
-    metodos_limpieza:STATE.config.metodos,
-    checklist_apertura:STATE.config.checklist_apertura,
-    checklist_cierre:STATE.config.checklist_cierre,
-    capacitaciones:STATE.config.capacitaciones
-  };
-  await sb.from('restaurants').update({config}).eq('id',STATE.restaurant_id);
-  populateDropdowns();
-}
+  async saveSection(sectionKey, data) {
+    if(STATE.isDemo) {
+      populateDropdowns();
+      return true;
+    }
+    
+    if (!this.validateData(data)) {
+      toast('Error de validación: Datos corruptos', 'error');
+      return false;
+    }
+    
+    const latestConfig = await this.fetchLatestConfig();
+    if (!latestConfig) {
+      toast('Error al leer configuración de la nube', 'error');
+      return false;
+    }
+    
+    const updatedConfig = { ...latestConfig };
+    updatedConfig[sectionKey] = data;
+    
+    const currentVersion = updatedConfig._metadata?.config_version || 0;
+    updatedConfig._metadata = {
+      config_version: currentVersion + 1,
+      updated_at: new Date().toISOString()
+    };
+    
+    try {
+      const {error} = await sb.from('restaurants').update({config: updatedConfig}).eq('id', STATE.restaurant_id);
+      if (error) throw error;
+      populateDropdowns();
+      return true;
+    } catch(e) {
+      toast('Error al guardar: ' + e.message, 'error');
+      return false;
+    }
+  }
+};
+
 function loadAdminAreas(){renderConfigList(STATE.config.areas,'areaList','deleteArea');}
-async function addArea(){const v=$('newArea').value.trim();if(!v){toast('Escribe un nombre','error');return}STATE.config.areas.push(v);await updateRestaurantConfig();loadAdminAreas();$('newArea').value='';toast('✅ Área agregada');}
-async function deleteArea(i){STATE.config.areas.splice(i,1);await updateRestaurantConfig();loadAdminAreas();toast('Área eliminada');}
+async function addArea(){const v=$('newArea').value.trim();if(!v){toast('Escribe un nombre','error');return}STATE.config.areas.push(v);await ConfigManager.saveSection('areas_limpieza', STATE.config.areas);loadAdminAreas();$('newArea').value='';toast('✅ Área agregada');}
+async function deleteArea(i){STATE.config.areas.splice(i,1);await ConfigManager.saveSection('areas_limpieza', STATE.config.areas);loadAdminAreas();toast('Área eliminada');}
 
 // --- Chemicals ---
 function loadAdminChemicals(){
   renderConfigList(STATE.config.chemicals_clean,'chemCleanList','deleteChemClean');
   renderConfigList(STATE.config.chemicals_desinf,'chemDesinfList','deleteChemDesinf');
 }
-async function addChemClean(){const v=$('newChemClean').value.trim();if(!v)return;STATE.config.chemicals_clean.push(v);await updateRestaurantConfig();loadAdminChemicals();$('newChemClean').value='';toast('✅ Producto agregado');}
-async function deleteChemClean(i){STATE.config.chemicals_clean.splice(i,1);await updateRestaurantConfig();loadAdminChemicals();toast('Eliminado');}
-async function addChemDesinf(){const v=$('newChemDesinf').value.trim();if(!v)return;STATE.config.chemicals_desinf.push(v);await updateRestaurantConfig();loadAdminChemicals();$('newChemDesinf').value='';toast('✅ Producto agregado');}
-async function deleteChemDesinf(i){STATE.config.chemicals_desinf.splice(i,1);await updateRestaurantConfig();loadAdminChemicals();toast('Eliminado');}
+async function addChemClean(){const v=$('newChemClean').value.trim();if(!v)return;STATE.config.chemicals_clean.push(v);await ConfigManager.saveSection('productos_limpieza', STATE.config.chemicals_clean);loadAdminChemicals();$('newChemClean').value='';toast('✅ Producto agregado');}
+async function deleteChemClean(i){STATE.config.chemicals_clean.splice(i,1);await ConfigManager.saveSection('productos_limpieza', STATE.config.chemicals_clean);loadAdminChemicals();toast('Eliminado');}
+async function addChemDesinf(){const v=$('newChemDesinf').value.trim();if(!v)return;STATE.config.chemicals_desinf.push(v);await ConfigManager.saveSection('productos_desinfeccion', STATE.config.chemicals_desinf);loadAdminChemicals();$('newChemDesinf').value='';toast('✅ Producto agregado');}
+async function deleteChemDesinf(i){STATE.config.chemicals_desinf.splice(i,1);await ConfigManager.saveSection('productos_desinfeccion', STATE.config.chemicals_desinf);loadAdminChemicals();toast('Eliminado');}
 
 // --- Checklists Admin ---
 function loadAdminChecklists(){
   renderConfigList(STATE.config.checklist_apertura,'checkAperturaList','deleteCheckApertura');
   renderConfigList(STATE.config.checklist_cierre,'checkCierreList','deleteCheckCierre');
 }
-async function addCheckApertura(){const v=$('newCheckApertura').value.trim();if(!v)return;STATE.config.checklist_apertura.push(v);await updateRestaurantConfig();loadAdminChecklists();$('newCheckApertura').value='';toast('✅ Item agregado');}
-async function deleteCheckApertura(i){STATE.config.checklist_apertura.splice(i,1);await updateRestaurantConfig();loadAdminChecklists();toast('Eliminado');}
-async function addCheckCierre(){const v=$('newCheckCierre').value.trim();if(!v)return;STATE.config.checklist_cierre.push(v);await updateRestaurantConfig();loadAdminChecklists();$('newCheckCierre').value='';toast('✅ Item agregado');}
-async function deleteCheckCierre(i){STATE.config.checklist_cierre.splice(i,1);await updateRestaurantConfig();loadAdminChecklists();toast('Eliminado');}
+async function addCheckApertura(){const v=$('newCheckApertura').value.trim();if(!v)return;STATE.config.checklist_apertura.push(v);await ConfigManager.saveSection('checklist_apertura', STATE.config.checklist_apertura);loadAdminChecklists();$('newCheckApertura').value='';toast('✅ Item agregado');}
+async function deleteCheckApertura(i){STATE.config.checklist_apertura.splice(i,1);await ConfigManager.saveSection('checklist_apertura', STATE.config.checklist_apertura);loadAdminChecklists();toast('Eliminado');}
+async function addCheckCierre(){const v=$('newCheckCierre').value.trim();if(!v)return;STATE.config.checklist_cierre.push(v);await ConfigManager.saveSection('checklist_cierre', STATE.config.checklist_cierre);loadAdminChecklists();$('newCheckCierre').value='';toast('✅ Item agregado');}
+async function deleteCheckCierre(i){STATE.config.checklist_cierre.splice(i,1);await ConfigManager.saveSection('checklist_cierre', STATE.config.checklist_cierre);loadAdminChecklists();toast('Eliminado');}
 
 // --- Capacitaciones Admin ---
 function loadAdminCapacitaciones(){
@@ -852,7 +875,7 @@ function loadAdminCapacitaciones(){
   if(!list) return;
   list.innerHTML = '';
   STATE.config.capacitaciones.forEach(c => {
-    list.innerHTML += `<div class="config-item"><span class="config-name">🎓 ${c.titulo}</span><button class="config-del" onclick="deleteCapacitacion('${c.id}')">✕</button></div>`;
+    list.innerHTML += `<div class="config-item"><span class="config-name">🎓 ${c.titulo}</span><button class="config-del" onclick="deleteCapacitacion('${c.id}')">🗑️</button></div>`;
   });
 }
 async function addCapacitacion(){
@@ -866,15 +889,17 @@ async function addCapacitacion(){
     contenido: contenido
   });
   
-  await updateRestaurantConfig();
+  await ConfigManager.saveSection('capacitaciones', STATE.config.capacitaciones);
   $('capNombre').value = '';
   $('capContenido').value = '';
   toast('✅ Curso agregado');
 }
+
 async function deleteCapacitacion(id){
   if(!confirm('¿Eliminar este curso?')) return;
   STATE.config.capacitaciones = STATE.config.capacitaciones.filter(c => c.id !== id);
-  await updateRestaurantConfig();
+  await ConfigManager.saveSection('capacitaciones', STATE.config.capacitaciones);
+  loadAdminCapacitaciones();
   toast('Curso eliminado');
 }
 

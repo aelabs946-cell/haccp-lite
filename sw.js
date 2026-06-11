@@ -1,5 +1,5 @@
-const CACHE_NAME = 'haccp-lite-v9';
-const ASSETS = ['/', '/index.html?v=9', '/styles.css?v=9', '/app.js?v=9'];
+const CACHE_NAME = 'haccp-lite-v10';
+const ASSETS = ['/', '/index.html?v=10', '/styles.css?v=10', '/app.js?v=10'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
