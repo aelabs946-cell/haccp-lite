@@ -171,25 +171,48 @@ async function handleForgotPassword(e){
 
 async function enterApp(user){
   STATE.isDemo=false; STATE.user=user;
-  $('loginScreen').style.display='none'; $('appMain').style.display='flex';
-  $('headerUser').textContent='Control de Procesos e Inocuidad'; 
-  $('headerMode').textContent='☁️ Cloud'; 
-  $('headerMode').style.background='rgba(6, 182, 212, 0.2)'; 
-  $('headerMode').style.color='var(--accent-light)';
-  $('headerMode').style.display='inline-block';
+  $('loginScreen').style.display='none'; 
+  
   try{
-    const{data, error}=await sb.from('users').select('restaurant_id,nombre,rol').eq('id',user.id).single();
-    if(error) toast('Error db: ' + error.message, 'error');
-    if(data){
-      STATE.restaurant_id=data.restaurant_id; STATE.role=data.rol||'empleado';
-      toast('Debug Rol: ' + STATE.role, 'warning');
-      if(data.nombre){STATE.responsable=data.nombre; fillResponsable(data.nombre); $('responsableBar').style.display='none';}
-      else $('responsableBar').style.display='block';
-    } else {
-      toast('No se encontró usuario en BD', 'error');
-      $('responsableBar').style.display='block';
+    const{data, error}=await sb.from('users').select('restaurant_id,nombre,rol,estado_usuario').eq('id',user.id).single();
+    if(error) throw error;
+    
+    if(!data || data.estado_usuario !== 'activo' || !data.restaurant_id){
+      $('appMain').style.display='none';
+      const pendingScreen = $('pendingScreen');
+      if (pendingScreen) {
+        pendingScreen.style.display='flex';
+        const st = data ? data.estado_usuario : 'pendiente';
+        if (st === 'bloqueado') {
+          $('pendingTitle').textContent = 'Acceso Bloqueado';
+          $('pendingMessage').textContent = 'Tu cuenta ha sido suspendida. Contacta a un administrador.';
+        } else {
+          $('pendingTitle').textContent = 'Acceso Pendiente';
+          $('pendingMessage').textContent = 'Tu cuenta fue creada pero aún no ha sido vinculada por un administrador de tu empresa.';
+        }
+      }
+      return; // Stop execution, don't load the app
     }
-  }catch(e){toast('Error fatal: '+e.message, 'error'); $('responsableBar').style.display='block'}
+    
+    // User is active and has a restaurant
+    $('appMain').style.display='flex';
+    $('headerUser').textContent='Control de Procesos e Inocuidad'; 
+    $('headerMode').textContent='☁️ Cloud'; 
+    $('headerMode').style.background='rgba(6, 182, 212, 0.2)'; 
+    $('headerMode').style.color='var(--accent-light)';
+    $('headerMode').style.display='inline-block';
+    
+    STATE.restaurant_id=data.restaurant_id; 
+    STATE.role=data.rol||'empleado';
+    if(data.nombre){STATE.responsable=data.nombre; fillResponsable(data.nombre); $('responsableBar').style.display='none';}
+    else $('responsableBar').style.display='block';
+    
+  }catch(e){
+    toast('Error fatal: '+e.message, 'error'); 
+    $('responsableBar').style.display='block';
+    $('appMain').style.display='flex';
+  }
+  
   await loadConfig(); await loadRecords(); refreshDashboard(); applyRole();
 }
 
