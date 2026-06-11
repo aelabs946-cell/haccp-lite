@@ -1116,7 +1116,34 @@ document.addEventListener('DOMContentLoaded',()=>{
   
   window.addEventListener('online', syncPendingRecords);
 });
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if ('serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // Show the update banner
+          const banner = document.getElementById('updateBanner');
+          const btn = document.getElementById('btnReloadUpdate');
+          if (banner && btn) {
+            banner.style.display = 'flex';
+            btn.onclick = () => {
+              banner.style.display = 'none';
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            };
+          }
+        }
+      });
+    });
+  }).catch(() => {});
+}
 // ══════════════════════════════
 // VOICE DICTATION — Web Speech API
 // ══════════════════════════════
