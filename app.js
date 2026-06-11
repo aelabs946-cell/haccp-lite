@@ -830,7 +830,7 @@ async function loadAdminUsers(){
   if(STATE.isDemo){list.innerHTML='<p class="empty-state">No disponible en demo</p>';return}
   list.innerHTML='<p class="empty-state">Cargando...</p>';
   try{
-    const{data:users}=await sb.from('users').select('id,nombre,rol,fecha_creacion');
+    const{data:users}=await sb.from('users').select('id,nombre,email,rol,estado_usuario,fecha_creacion');
     if(!users||!users.length){list.innerHTML='<p class="empty-state">Sin usuarios</p>';return}
     list.innerHTML='';
     users.forEach(u=>{
