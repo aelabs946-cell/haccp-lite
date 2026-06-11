@@ -933,13 +933,28 @@ async function loadAdminUsers(){
   try{
     const{data:users}=await sb.from('users').select('id,nombre,email,rol,estado_usuario,fecha_creacion');
     if(!users||!users.length){list.innerHTML='<p class="empty-state">Sin usuarios</p>';return}
+    
+    // Store globally to use for "last admin" check
+    STATE.admin_users = users;
+    
     list.innerHTML='';
     users.forEach(u=>{
       const isMe=u.id===STATE.user.id;
-      list.innerHTML+=`<div class="config-item" style="flex-wrap:wrap;gap:8px">
-        <div style="flex:1;min-width:120px"><span class="config-name">${u.nombre||'Sin nombre'}${isMe?' (Tú)':''}</span>
-        <span class="config-detail">${new Date(u.fecha_creacion).toLocaleDateString('es-CO')}</span></div>
-        <select class="input" style="width:auto;min-width:120px;margin:0;padding:8px" onchange="changeUserRole('${u.id}',this.value)" ${isMe?'disabled':''}>
+      const estadoColor = u.estado_usuario === 'activo' ? 'var(--success)' : (u.estado_usuario === 'bloqueado' ? 'var(--danger)' : 'var(--warning)');
+      
+      list.innerHTML+=`<div class="config-item" style="flex-wrap:wrap;gap:8px; border-left:4px solid ${estadoColor}">
+        <div style="flex:1;min-width:120px">
+          <span class="config-name">${u.nombre||'Sin nombre'} <span style="font-size:10px; color:var(--text3)">${u.email||''}</span> ${isMe?' (Tú)':''}</span>
+          <span class="config-detail">${new Date(u.fecha_creacion).toLocaleDateString('es-CO')}</span>
+        </div>
+        
+        <select class="input" style="width:auto;min-width:110px;margin:0;padding:4px 8px;font-size:12px;" onchange="changeUserState('${u.id}',this.value)" ${isMe?'disabled':''}>
+          <option value="activo" ${u.estado_usuario==='activo'?'selected':''}>✅ Activo</option>
+          <option value="pendiente" ${u.estado_usuario==='pendiente'?'selected':''}>⏳ Pendiente</option>
+          <option value="bloqueado" ${u.estado_usuario==='bloqueado'?'selected':''}>❌ Bloqueado</option>
+        </select>
+
+        <select class="input" style="width:auto;min-width:110px;margin:0;padding:4px 8px;font-size:12px;" onchange="changeUserRole('${u.id}',this.value)">
           <option value="admin" ${u.rol==='admin'?'selected':''}>👑 Admin</option>
           <option value="supervisor" ${u.rol==='supervisor'?'selected':''}>📋 Supervisor</option>
           <option value="empleado" ${u.rol==='empleado'?'selected':''}>👤 Empleado</option>
@@ -947,9 +962,36 @@ async function loadAdminUsers(){
     });
   }catch(e){list.innerHTML=`<p class="empty-state">Error: ${e.message}</p>`}
 }
-async function changeUserRole(userId, newRole){
-  const{error}=await sb.from('users').update({rol:newRole}).eq('id',userId);
-  if(error)toast('Error: '+error.message,'error'); else toast(`✅ Rol cambiado a ${newRole}`);
+async function changeUserRole(id, newRole) {
+  if (!confirm(`¿Estás seguro de cambiar el rol a ${newRole.toUpperCase()}?`)) {
+    loadAdminUsers(); // Revert UI
+    return;
+  }
+  
+  try {
+    const {error} = await sb.from('users').update({rol: newRole}).eq('id', id);
+    if(error) throw error;
+    toast('Rol actualizado correctamente', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+  loadAdminUsers();
+}
+
+async function changeUserState(id, newState) {
+  if (!confirm(`¿Estás seguro de cambiar el estado a ${newState.toUpperCase()}?`)) {
+    loadAdminUsers(); // Revert UI
+    return;
+  }
+  
+  try {
+    const {error} = await sb.from('users').update({estado_usuario: newState}).eq('id', id);
+    if(error) throw error;
+    toast('Estado actualizado correctamente', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+  loadAdminUsers();
 }
 
 // ═══ EQ TYPE TOGGLE ═══
