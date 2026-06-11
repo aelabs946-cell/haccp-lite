@@ -45,7 +45,39 @@ function toast(msg, type='success', parent='appToast'){
 // ═══ LOCAL STORAGE ═══
 function getRecords(){ try{return JSON.parse(localStorage.getItem('haccp_records')||'[]')}catch{return[]} }
 function saveRecords(r){ localStorage.setItem('haccp_records',JSON.stringify(r)) }
-function addRecord(r){ const rec={...r,id:r.id||crypto.randomUUID(),created_at:r.created_at||new Date().toISOString(),synced:STATE.isDemo?true:false}; const recs=getRecords(); recs.unshift(rec); saveRecords(recs); STATE.records=recs; syncPendingRecords(); return rec; }
+
+function getSyncQueue(){ try{return JSON.parse(localStorage.getItem('haccp_sync_queue')||'[]')}catch{return[]} }
+function saveSyncQueue(q){ localStorage.setItem('haccp_sync_queue',JSON.stringify(q)) }
+function discardFromSyncQueue(id){
+  const q = getSyncQueue().filter(r => r.id !== id);
+  saveSyncQueue(q);
+  showSyncModal();
+  refreshDashboard();
+  updateSyncBadge();
+}
+
+function addRecord(r){ 
+  const rec={...r, id:r.id||crypto.randomUUID(), created_at:r.created_at||new Date().toISOString()}; 
+  
+  if (STATE.isDemo) {
+    rec.synced = true;
+    const recs=getRecords(); 
+    recs.unshift(rec); 
+    saveRecords(recs); 
+    STATE.records=recs;
+  } else {
+    rec.synced = false;
+    rec.sync_error = null;
+    rec.restaurant_id = STATE.restaurant_id;
+    rec.user_id = STATE.user.id;
+    const q = getSyncQueue();
+    q.push(rec);
+    saveSyncQueue(q);
+  }
+  
+  syncPendingRecords(); 
+  return rec; 
+}
 
 // ══════════════════════════════
 // CONFIG — Dynamic Dropdowns
@@ -374,49 +406,67 @@ function resetAC(key){
   $(key+'ACResueltaNo')?.classList.remove('active');
 }
 
-// ══════════════════════════════
-// OFFLINE SYNC QUEUE
-// ══════════════════════════════
-async function syncPendingRecords(){
-  if(STATE.isDemo) return;
-  const recs=getRecords();
-  const pending=recs.filter(r=>r.synced===false);
+function updateSyncBadge(){
+  const pending = getSyncQueue();
   const badge=$('syncBadge');
   if(!badge) return;
-  
   if(pending.length===0){
     badge.style.display='none';
+  } else {
+    badge.style.display='inline-block';
+    badge.textContent=`⚠️ ${pending.length} pdtes`;
+  }
+}
+
+async function syncPendingRecords(){
+  if(STATE.isDemo) return;
+  const pending = getSyncQueue();
+  updateSyncBadge();
+  if(pending.length===0) return;
+  
+  if(!navigator.onLine) {
+    toast('No hay conexión a internet','warning');
     return;
   }
   
-  badge.style.display='inline-block';
-  badge.textContent=`⏳ ${pending.length} pdtes`;
-  
-  if(!navigator.onLine) return;
-  
+  const badge=$('syncBadge');
+  if(badge) badge.textContent='🔄 Sincronizando...';
   let syncedCount=0;
-  badge.textContent='🔄 Sincronizando...';
   
-  for(let i=pending.length-1; i>=0; i--){
+  for(let i=0; i<pending.length; i++){
     const r=pending[i];
-    const row={id:r.id, restaurant_id:STATE.restaurant_id,tipo:r.tipo,datos:r.datos,estado:r.estado,observaciones:r.observaciones||null,accion_correctiva:r.accion_correctiva||null,registrado_por:STATE.user.id,created_at:r.created_at};
+    const row={id:r.id, restaurant_id:r.restaurant_id, tipo:r.tipo, datos:r.datos, estado:r.estado, observaciones:r.observaciones||null, accion_correctiva:r.accion_correctiva||null, registrado_por:r.user_id, created_at:r.created_at};
     try{
       const{error}=await sb.from('control_records').insert([row]);
-      if(!error || error.code === '23505'){ r.synced=true; syncedCount++; } // 23505 is Unique Violation (already synced)
-      else break; // Network error or other, stop queue
-    }catch(e){ break; }
+      if(!error || error.code === '23505'){ 
+        // Success or already exists
+        r.synced=true; 
+        syncedCount++; 
+        STATE.records.unshift(r); // Add to remote records
+      } else {
+        r.sync_error = error.message;
+      }
+    }catch(e){ 
+      r.sync_error = e.message; 
+    }
   }
+  
+  // Filter out synced records
+  const remaining = pending.filter(r => r.synced !== true);
+  saveSyncQueue(remaining);
+  updateSyncBadge();
   
   if(syncedCount>0){
-    saveRecords(recs);
-    STATE.records=recs;
-    toast(`🔄 ${syncedCount} registros sincronizados a la nube`,'success');
+    saveRecords(STATE.records);
+    toast(`✅ ${syncedCount} registros sincronizados a la nube`,'success');
     refreshDashboard();
+  } else if (remaining.length > 0) {
+    toast(`Hubo errores al sincronizar. Revisa la cola.`,'error');
   }
   
-  const remaining=recs.filter(r=>r.synced===false);
-  if(remaining.length===0) badge.style.display='none';
-  else badge.textContent=`⏳ ${remaining.length} pdtes`;
+  if($('syncQueueModal') && $('syncQueueModal').classList.contains('show')) {
+    renderSyncQueue();
+  }
 }
 
 // ══════════════════════════════
@@ -427,12 +477,12 @@ async function loadRecords(){
   try{
     const{data,error}=await sb.from('control_records').select('*').order('created_at',{ascending:false}).limit(200);
     if(!error&&data){
-      const localPending=getRecords().filter(r=>r.synced===false);
-      STATE.records=[...localPending, ...data];
+      STATE.records = data;
       saveRecords(STATE.records);
       syncPendingRecords();
     } else STATE.records=getRecords();
   }catch(e){STATE.records=getRecords()}
+  updateSyncBadge();
 }
 
 async function insertRecord(record){
@@ -651,7 +701,7 @@ function badgeClass(e){return e==='conforme'?'badge-green':e==='no_conforme'?'ba
 function statusLabel(e){return e==='conforme'?'✅':e==='no_conforme'?'❌':'⚠️'}
 function timeAgo(iso){const d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)return'Ahora';if(d<3600)return`${Math.floor(d/60)} min`;if(d<86400)return`${Math.floor(d/3600)}h`;return new Date(iso).toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}
 function tipoIcon(t){return{pcc:'🌡️',limpieza:'🧹',trazabilidad:'📦',checklist:'✅',etiqueta:'🏷️'}[t]||'📋'}
-function recordHTML(r){
+function recordHTML(r, isPending=false){
   const d=r.datos||{};let title='',value='',resp=d.responsable||'';
   if(r.tipo==='pcc'){
     title=d.equipo||'PCC';
@@ -664,23 +714,26 @@ function recordHTML(r){
   else if(r.tipo==='checklist'){title=(d.tipo_checklist==='apertura'?'☀️ Apertura':'🌙 Cierre');value=`${d.completados}/${d.total}`}
   const hasAC=d.accion_correctiva;
   const acBadge=hasAC?`<span style="font-size:10px;color:${hasAC.accion_resuelta?'var(--success)':'var(--danger)'};font-weight:700"> • ${hasAC.accion_resuelta?'✅ AC Resuelta':'⚠️ AC Pendiente'}</span>`:'';
-  return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}${acBadge}</div></div><div class="record-value">${value}</div></div>`;
+  const syncBadge=isPending?`<span style="font-size:10px;color:var(--warning);font-weight:700"> • ☁️⏳ Pendiente</span>`:'';
+  return `<div class="record-item"><div class="record-badge ${badgeClass(r.estado)}"></div><div class="record-info"><div class="record-title">${tipoIcon(r.tipo)} ${title}</div><div class="record-meta">${timeAgo(r.created_at)} · ${statusLabel(r.estado)} ${r.estado}${resp?' · 👤'+resp:''}${acBadge}${syncBadge}</div></div><div class="record-value">${value}</div></div>`;
 }
 function refreshDashboard(){
-  const recs=STATE.records, today=new Date().toISOString().slice(0,10);
+  const pending = getSyncQueue();
+  const recs=[...pending, ...STATE.records];
+  const today=new Date().toISOString().slice(0,10);
   const hoy=recs.filter(r=>(r.created_at||'').slice(0,10)===today);
   const nc=hoy.filter(r=>r.estado!=='conforme');
   const acCount=recs.filter(r=>r.datos?.accion_correctiva && !r.datos.accion_correctiva.accion_resuelta).length;
   $('kpiHoy').textContent=hoy.length; $('kpiAlertas').textContent=nc.length;
   $('kpiConf').textContent=(hoy.length?Math.round((hoy.length-nc.length)/hoy.length*100):100)+'%';
   $('kpiAC').textContent=acCount;
-  $('recentList').innerHTML=recs.slice(0,10).map(recordHTML).join('')||'<p class="empty-state">Sin registros</p>';
+  $('recentList').innerHTML=recs.slice(0,10).map(r => recordHTML(r, r.synced===false)).join('')||'<p class="empty-state">Sin registros</p>';
   const badge=$('connBadge');
   if(badge) badge.innerHTML=STATE.isDemo?'<span style="color:var(--warning)">📱 Local</span>':'<span style="color:var(--accent)">☁️ Nube</span>';
 }
-function refreshPCCList(){const l=STATE.records.filter(r=>r.tipo==='pcc').slice(0,10);$('pccList').innerHTML=l.length?l.map(recordHTML).join(''):'<p class="empty-state">Sin registros PCC</p>';}
-function refreshLimpList(){const l=STATE.records.filter(r=>r.tipo==='limpieza').slice(0,10);$('limpList').innerHTML=l.length?l.map(recordHTML).join(''):'<p class="empty-state">Sin registros</p>';}
-function refreshTrazaList(){const l=STATE.records.filter(r=>r.tipo==='trazabilidad').slice(0,10);$('trazaList').innerHTML=l.length?l.map(recordHTML).join(''):'<p class="empty-state">Sin registros</p>';}
+function refreshPCCList(){const pending=getSyncQueue(); const l=[...pending, ...STATE.records].filter(r=>r.tipo==='pcc').slice(0,10);$('pccList').innerHTML=l.length?l.map(r => recordHTML(r, r.synced===false)).join(''):'<p class="empty-state">Sin registros PCC</p>';}
+function refreshLimpList(){const pending=getSyncQueue(); const l=[...pending, ...STATE.records].filter(r=>r.tipo==='limpieza').slice(0,10);$('limpList').innerHTML=l.length?l.map(r => recordHTML(r, r.synced===false)).join(''):'<p class="empty-state">Sin registros</p>';}
+function refreshTrazaList(){const pending=getSyncQueue(); const l=[...pending, ...STATE.records].filter(r=>r.tipo==='trazabilidad').slice(0,10);$('trazaList').innerHTML=l.length?l.map(r => recordHTML(r, r.synced===false)).join(''):'<p class="empty-state">Sin registros</p>';}
 
 // ══════════════════════════════
 // ADMIN PANEL
